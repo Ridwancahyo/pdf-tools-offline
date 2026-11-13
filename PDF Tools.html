@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="light">
+<head>
+    <!-- Tambahkan ini di bawah <title> di index.html -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#005BAC">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Tools</title>
+    
+    <!-- Library Eksternal -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/heic2any.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%);
+            --glass-bg: rgba(255, 255, 255, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.5);
+            --text-main: #1A1A1D;
+            --text-muted: #555555;
+            --bca-blue: #005BAC;
+            --bca-blue-hover: #004A8D;
+            --shadow: 0 10px 30px rgba(0, 91, 172, 0.1);
+            --input-bg: rgba(255, 255, 255, 0.9);
+        }
+
+        [data-theme="dark"] {
+            --bg-gradient: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+            --glass-bg: rgba(20, 20, 25, 0.65);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --text-main: #FFFFFF;
+            --text-muted: #AAAAAA;
+            --shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            --input-bg: rgba(0, 0, 0, 0.5);
+        }
+
+        * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; transition: background 0.3s, color 0.3s, border-color 0.3s; }
+
+        body { margin: 0; display: flex; height: 100vh; background: var(--bg-gradient); color: var(--text-main); overflow: hidden; }
+
+        .glass-panel { background: var(--glass-bg); backdrop-filter: blur(16px); border: 1px solid var(--glass-border); box-shadow: var(--shadow); border-radius: 20px; }
+
+        /* SIDEBAR */
+        .sidebar { width: 280px; margin: 1rem; display: flex; flex-direction: column; padding: 1.5rem 0; overflow-y: auto; }
+        .logo { font-size: 1.5rem; font-weight: 800; padding: 0 1.5rem 1rem; border-bottom: 1px solid var(--glass-border); margin-bottom: 1rem; letter-spacing: 1px; }
+        .logo span { color: var(--bca-blue); }
+        .menu-label { font-size: 0.75rem; color: var(--text-muted); padding: 0 1.5rem; margin-top: 1rem; margin-bottom: 0.5rem; text-transform: uppercase; font-weight: bold; }
+        .menu-item { padding: 0.8rem 1.5rem; cursor: pointer; display: flex; align-items: center; gap: 12px; text-decoration: none; font-size: 0.95rem; margin: 0.2rem 1rem; border-radius: 12px; }
+        .menu-item:hover, .menu-item.active { background-color: var(--bca-blue); color: white; box-shadow: 0 4px 15px rgba(0, 91, 172, 0.3); }
+        
+        .footer-credits { margin-top: auto; text-align: center; padding: 1rem; font-size: 0.85rem; color: var(--text-muted); font-weight: 600; border-top: 1px solid var(--glass-border); }
+
+        /* MAIN CONTENT */
+        .main-content { flex: 1; margin: 1rem 1rem 1rem 0; padding: 2rem; display: flex; flex-direction: column; overflow-y: auto; position: relative; }
+        .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+        .theme-toggle { background: var(--input-bg); border: 1px solid var(--glass-border); color: var(--text-main); padding: 8px 16px; border-radius: 20px; cursor: pointer; font-weight: 600; }
+
+        /* WORKSPACE & DROPZONE */
+        .workspace { display: none; flex-direction: column; align-items: center; justify-content: center; height: 100%; }
+        .workspace.active { display: flex; }
+        .drop-zone { width: 100%; max-width: 600px; padding: 4rem 2rem; text-align: center; border: 2px dashed var(--bca-blue); border-radius: 20px; background: rgba(0, 91, 172, 0.05); cursor: pointer; transition: 0.3s; }
+        
+        /* Drag effect */
+        .drop-zone:hover { background: rgba(0, 91, 172, 0.15); transform: translateY(-5px); }
+        .drop-zone.dragover { background: rgba(0, 91, 172, 0.25); border-color: var(--bca-blue-hover); transform: scale(1.02); }
+
+        /* PREVIEW PANEL */
+        .preview-panel { display: none; width: 100%; gap: 2rem; animation: fadeIn 0.4s ease; height: 100%; }
+        .preview-panel.active { display: flex; }
+        .preview-frame { flex: 1.5; border-radius: 12px; border: 1px solid var(--glass-border); overflow: hidden; background: white; display: flex; align-items: center; justify-content: center; color: #888; flex-direction: column;}
+        .preview-frame iframe { width: 100%; height: 100%; border: none; }
+        
+        .settings-panel { flex: 1; display: flex; flex-direction: column; gap: 1rem; overflow-y: auto; padding-right: 10px;}
+        input[type="text"], input[type="password"], input[type="file"], select, input[type="range"] { width: 100%; padding: 12px; background: var(--input-bg); border: 1px solid var(--glass-border); color: var(--text-main); border-radius: 10px; font-size: 1rem; }
+        
+        .range-container { display: flex; align-items: center; gap: 10px; }
+        .range-container span { font-weight: bold; width: 40px; text-align: right; }
+
+        .btn { background-color: var(--bca-blue); color: white; border: none; padding: 14px 24px; border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 1rem; box-shadow: 0 4px 15px rgba(0, 91, 172, 0.3); }
+        .btn:hover { background-color: var(--bca-blue-hover); transform: translateY(-2px); }
+        .btn.secondary { background-color: transparent; border: 1px solid var(--glass-border); color: var(--text-main); box-shadow: none; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar glass-panel">
+        <div class="logo">PDF<span>TOOLS</span></div>
+        
+        <div class="menu-label">Proteksi & Edit</div>
+        <div class="menu-item active" onclick="nav('watermark')">🛡️ Watermark PDF</div>
+        <div class="menu-item" onclick="nav('lock')">🔒 Protect PDF</div>
+        <div class="menu-item" onclick="nav('unlock')">🔓 Unlock PDF</div>
+        <div class="menu-item" onclick="nav('removepages')">✂️ Hapus Halaman</div>
+        <div class="menu-item" onclick="nav('merge')">📑 Gabung PDF</div>
+        
+        <div class="menu-label">Konversi & Optimasi</div>
+        <div class="menu-item" onclick="nav('compress')">🗜️ Compress PDF</div>
+        <div class="menu-item" onclick="nav('pdf2img')">🖼️ PDF to Image</div>
+        <div class="menu-item" onclick="nav('img2pdf')">📄 Image to PDF</div>
+        <div class="menu-item" onclick="nav('heic')">📱 HEIC Converter</div>
+
+        <div class="footer-credits">Created by Ridwan</div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content glass-panel">
+        <div class="top-bar">
+            <div>
+                <h2 id="page-title" style="margin:0;">Watermark PDF</h2>
+            </div>
+            <button class="theme-toggle" onclick="toggleTheme()">🌓 Ganti Tema</button>
+        </div>
+
+        <!-- UPLOAD SECTION -->
+        <div id="upload-section" class="workspace active">
+            <div class="drop-zone" id="drop-zone">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">☁️</div>
+                <h3>Pilih atau Tarik Berkas ke Sini</h3>
+                <p style="color: var(--text-muted);">Tarik (Drag & Drop) file Anda ke area ini</p>
+            </div>
+            <input type="file" id="file-input" style="display: none;">
+        </div>
+
+        <!-- PREVIEW & SETTINGS SECTION -->
+        <div id="preview-section" class="preview-panel">
+            <div class="preview-frame" id="preview-container">
+                <iframe id="pdf-preview"></iframe>
+                <p id="preview-loading" style="display: none; position: absolute; background: rgba(0,0,0,0.7); color: white; padding: 10px 20px; border-radius: 20px;">Memuat Pratinjau...</p>
+            </div>
+            <div class="settings-panel">
+                <h3>Pengaturan & Ekspor</h3>
+                
+                <label>Nama File Baru (Opsional):</label>
+                <input type="text" id="rename-input" placeholder="NamaFileBaru">
+                
+                <!-- Dynamic Options -->
+                <div id="dynamic-options"></div>
+
+                <div style="margin-top: 2rem; display: flex; gap: 10px;">
+                    <button class="btn secondary" style="flex: 1;" onclick="resetWorkspace()">Batal</button>
+                    <button class="btn" style="flex: 2;" onclick="processFile()" id="process-btn">Proses & Download</button>
+                </div>
+                <div id="status-msg" style="color: #4CAF50; font-weight: bold; margin-top: 10px;"></div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        const { PDFDocument, rgb, degrees } = PDFLib;
+
+        let currentTool = 'watermark';
+        let currentFile = null;
+        let currentFilesList = [];
+        let previewBlobUrl = null; 
+
+        // DRAG AND DROP HANDLER
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+
+        dropZone.addEventListener('click', () => fileInput.click());
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+        dropZone.addEventListener('dragleave', (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            if (e.dataTransfer.files.length) {
+                fileInput.files = e.dataTransfer.files;
+                handleFileSelect({ target: fileInput });
+            }
+        });
+        
+        fileInput.addEventListener('change', handleFileSelect);
+
+        function toggleTheme() {
+            const body = document.body;
+            body.setAttribute('data-theme', body.getAttribute('data-theme') === 'light' ? 'dark' : 'light');
+        }
+
+        function nav(tool) {
+            currentTool = tool;
+            document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+            resetWorkspace();
+
+            const titles = {
+                'watermark': 'Watermark PDF',
+                'lock': 'Protect PDF (Kunci Password)',
+                'unlock': 'Unlock PDF (Hapus Password)',
+                'removepages': 'Hapus Halaman PDF',
+                'merge': 'Gabung Beberapa PDF',
+                'compress': 'Compress PDF',
+                'pdf2img': 'Konversi PDF ke Gambar',
+                'img2pdf': 'Konversi Gambar ke PDF',
+                'heic': 'Konversi HEIC ke JPG / PDF'
+            };
+            document.getElementById('page-title').innerText = titles[tool];
+            
+            fileInput.multiple = (tool === 'merge' || tool === 'img2pdf');
+            if (tool === 'heic') fileInput.accept = ".heic";
+            else if (tool === 'img2pdf') fileInput.accept = "image/*"; // Mendukung semua gambar (WebP, BMP, GIF, PNG, JPG)
+            else fileInput.accept = "application/pdf";
+        }
+
+        function resetWorkspace() {
+            document.getElementById('upload-section').classList.add('active');
+            document.getElementById('preview-section').classList.remove('active');
+            fileInput.value = "";
+            document.getElementById('status-msg').innerText = "";
+            if (previewBlobUrl) URL.revokeObjectURL(previewBlobUrl);
+            currentFile = null;
+            currentFilesList = [];
+        }
+
+        function handleFileSelect(event) {
+            const files = event.target.files;
+            if (files.length === 0) return;
+
+            if (currentTool === 'merge' || currentTool === 'img2pdf') {
+                currentFilesList = Array.from(files);
+                currentFile = files[0];
+            } else {
+                currentFile = files[0];
+            }
+
+            document.getElementById('upload-section').classList.remove('active');
+            document.getElementById('preview-section').classList.add('active');
+            
+            const previewContainer = document.getElementById('preview-container');
+            const iframe = document.getElementById('pdf-preview');
+            
+            if (currentTool === 'heic' || currentTool === 'img2pdf') {
+                iframe.style.display = 'none';
+                previewContainer.innerHTML = `<p>Pratinjau langsung tidak tersedia untuk format ini. Silakan proses.</p><iframe id="pdf-preview" style="display:none;"></iframe>`;
+            } else {
+                iframe.style.display = 'block';
+                previewBlobUrl = URL.createObjectURL(currentFile);
+                document.getElementById('pdf-preview').src = previewBlobUrl;
+            }
+
+            const originalName = currentFile.name.substring(0, currentFile.name.lastIndexOf('.'));
+            document.getElementById('rename-input').value = originalName + "_Edited";
+
+            buildDynamicOptions();
+            if(currentTool === 'watermark') updateLivePreview();
+        }
+
+        function buildDynamicOptions() {
+            const container = document.getElementById('dynamic-options');
+            container.innerHTML = ''; 
+
+            if (currentTool === 'watermark') {
+                container.innerHTML = `
+                    <label style="margin-top:1rem; display:block;">Teks Watermark:</label>
+                    <input type="text" id="opt-wm-text" value="CONFIDENTIAL - BCA" oninput="updateLivePreview()">
+                    <label style="margin-top:1rem; display:block;">Transparansi (Opacity):</label>
+                    <div class="range-container">
+                        <input type="range" id="opt-wm-opacity" min="0.05" max="1" step="0.05" value="0.15" oninput="updateLivePreview()">
+                        <span id="opacity-val">15%</span>
+                    </div>
+                `;
+            } else if (currentTool === 'compress') {
+                container.innerHTML = `
+                    <label style="margin-top:1rem; display:block;">Level Kompresi:</label>
+                    <select id="opt-compress-level">
+                        <option value="normal">Normal Compress (Aman, Resolusi Utuh)</option>
+                        <option value="high">High Compress (Ubah ke Gambar Kualitas Rendah)</option>
+                    </select>
+                    <p style="font-size:0.85rem; color:var(--text-muted);">*High Compress dijamin mengurangi ukuran file secara drastis, namun teks di dalam PDF akan diubah menjadi format gambar (*Rasterize*).</p>
+                `;
+            } else if (currentTool === 'removepages') {
+                container.innerHTML = `
+                    <label style="margin-top:1rem; display:block;">Halaman yang DISIMPAN (Misal: 1,3,4-5):</label>
+                    <input type="text" id="opt-pages" placeholder="Contoh: 1,2,5">
+                `;
+            } else if (currentTool === 'lock') {
+                container.innerHTML = `
+                    <label style="margin-top:1rem; display:block;">Masukkan Password Baru:</label>
+                    <input type="password" id="opt-lock-pass" placeholder="Buat Password">
+                `;
+            } else if (currentTool === 'unlock') {
+                container.innerHTML = `
+                    <label style="margin-top:1rem; display:block;">Masukkan Password PDF Saat Ini:</label>
+                    <input type="password" id="opt-unlock-pass" placeholder="Password PDF">
+                `;
+            } else if (currentTool === 'heic') {
+                container.innerHTML = `
+                    <label style="margin-top:1rem; display:block;">Pilih Format Output:</label>
+                    <select id="opt-heic-format"><option value="jpg">Gambar (JPG)</option><option value="pdf">Dokumen (PDF)</option></select>
+                `;
+            }
+        }
+
+        let previewTimeout;
+        async function updateLivePreview() {
+            if (currentTool !== 'watermark' || !currentFile) return;
+            const text = document.getElementById('opt-wm-text').value;
+            const opacityVal = document.getElementById('opt-wm-opacity').value;
+            document.getElementById('opacity-val').innerText = Math.round(opacityVal * 100) + '%';
+            document.getElementById('preview-loading').style.display = 'block';
+
+            clearTimeout(previewTimeout);
+            previewTimeout = setTimeout(async () => {
+                try {
+                    const pdfDoc = await PDFDocument.load(await currentFile.arrayBuffer());
+                    const pages = pdfDoc.getPages();
+                    pages.forEach(page => {
+                        const { width, height } = page.getSize();
+                        for (let x = -width; x < width * 2; x += 250) {
+                            for (let y = -height; y < height * 2; y += 250) {
+                                page.drawText(text, { x: x, y: y, size: 24, color: rgb(0.5, 0.5, 0.5), opacity: parseFloat(opacityVal), rotate: degrees(45) });
+                            }
+                        }
+                    });
+                    if (previewBlobUrl) URL.revokeObjectURL(previewBlobUrl);
+                    previewBlobUrl = URL.createObjectURL(new Blob([await pdfDoc.save()], { type: 'application/pdf' }));
+                    document.getElementById('pdf-preview').src = previewBlobUrl;
+                } catch (e) {}
+                document.getElementById('preview-loading').style.display = 'none';
+            }, 600);
+        }
+
+        function downloadBlob(blob, ext, suffix = "") {
+            let filename = document.getElementById('rename-input').value.trim();
+            if (!filename) filename = "PDFTools_Doc";
+            if (suffix) filename += suffix; // Untuk multi-halaman
+            if (!filename.toLowerCase().endsWith(ext)) filename += ext;
+
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = filename;
+            a.click(); URL.revokeObjectURL(url);
+        }
+
+        // UNIVERSAL IMAGE CANVAS RENDERER (Agar mendukung WebP, GIF, BMP, dll)
+        function convertAnyImageToJpgBuffer(file) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width; canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    canvas.toBlob(async (blob) => resolve(await blob.arrayBuffer()), 'image/jpeg', 0.9);
+                };
+                img.onerror = reject;
+                img.src = URL.createObjectURL(file);
+            });
+        }
+
+        async function processFile() {
+            const status = document.getElementById('status-msg');
+            status.innerText = "Memproses secara offline...";
+            document.getElementById('process-btn').disabled = true;
+
+            try {
+                if (currentTool === 'watermark') await runWatermark();
+                else if (currentTool === 'removepages') await runRemovePages();
+                else if (currentTool === 'merge') await runMerge();
+                else if (currentTool === 'compress') await runCompress();
+                else if (currentTool === 'pdf2img') await runPdfToImg();
+                else if (currentTool === 'img2pdf') await runImgToPdf();
+                else if (currentTool === 'unlock') await runUnlock();
+                else if (currentTool === 'lock') await runLock();
+                else if (currentTool === 'heic') await runHeic();
+                
+                status.innerText = "Berhasil diproses dan diunduh!";
+                status.style.color = "#4CAF50";
+            } catch (e) {
+                console.error(e);
+                status.innerText = "Terjadi kesalahan: " + e.message;
+                status.style.color = "#D32F2F";
+            }
+            document.getElementById('process-btn').disabled = false;
+        }
+        
+        async function runWatermark() {
+            const text = document.getElementById('opt-wm-text').value;
+            const opacity = parseFloat(document.getElementById('opt-wm-opacity').value);
+            const pdfDoc = await PDFDocument.load(await currentFile.arrayBuffer());
+            pdfDoc.getPages().forEach(page => {
+                const { width, height } = page.getSize();
+                for (let x = -width; x < width * 2; x += 250) {
+                    for (let y = -height; y < height * 2; y += 250) {
+                        page.drawText(text, { x: x, y: y, size: 24, color: rgb(0.5, 0.5, 0.5), opacity: opacity, rotate: degrees(45) });
+                    }
+                }
+            });
+            downloadBlob(new Blob([await pdfDoc.save()], { type: 'application/pdf' }), '.pdf');
+        }
+
+        async function runCompress() {
+            const level = document.getElementById('opt-compress-level').value;
+            if (level === 'normal') {
+                const pdfDoc = await PDFDocument.load(await currentFile.arrayBuffer());
+                downloadBlob(new Blob([await pdfDoc.save({ useObjectStreams: false })], { type: 'application/pdf' }), '.pdf');
+            } else {
+                // High Compress: Render PDF ke Kanvas, convert jadi JPEG 60%, buat PDF baru
+                const arrayBuffer = await currentFile.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
+                const newPdf = await PDFDocument.create();
+                
+                for(let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const viewport = page.getViewport({ scale: 1.2 });
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = viewport.width; canvas.height = viewport.height;
+                    await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+                    
+                    const imgBuffer = await new Promise(res => canvas.toBlob(async b => res(await b.arrayBuffer()), 'image/jpeg', 0.6));
+                    const image = await newPdf.embedJpg(imgBuffer);
+                    const newPage = newPdf.addPage([image.width, image.height]);
+                    newPage.drawImage(image, { x: 0, y: 0, width: image.width, height: image.height });
+                }
+                downloadBlob(new Blob([await newPdf.save()], { type: 'application/pdf' }), '.pdf');
+            }
+        }
+
+        async function runPdfToImg() {
+            const arrayBuffer = await currentFile.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
+            
+            // Loop untuk mengunduh SETIAP halaman menjadi gambar yang terpisah
+            for(let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const viewport = page.getViewport({ scale: 2.0 }); 
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = viewport.width; canvas.height = viewport.height;
+                await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+                
+                canvas.toBlob(blob => { downloadBlob(blob, '.jpg', `_Halaman_${i}`); }, 'image/jpeg', 0.9);
+                
+                // Jeda 300ms agar browser tidak menganggapnya sebagai spam download
+                await new Promise(r => setTimeout(r, 300)); 
+            }
+        }
+
+        async function runImgToPdf() {
+            const pdfDoc = await PDFDocument.create();
+            for (let file of currentFilesList) {
+                // Menggunakan fungsi universal agar bisa menerima WebP, GIF, dll
+                const imgBuffer = await convertAnyImageToJpgBuffer(file);
+                const image = await pdfDoc.embedJpg(imgBuffer);
+                const page = pdfDoc.addPage([image.width, image.height]);
+                page.drawImage(image, { x: 0, y: 0, width: image.width, height: image.height });
+            }
+            downloadBlob(new Blob([await pdfDoc.save()], { type: 'application/pdf' }), '.pdf');
+        }
+
+        async function runRemovePages() {
+            const input = document.getElementById('opt-pages').value;
+            const pdfDoc = await PDFDocument.load(await currentFile.arrayBuffer());
+            const maxPages = pdfDoc.getPageCount();
+            let pagesToKeep = new Set();
+            input.split(',').forEach(part => {
+                let bounds = part.split('-');
+                if (bounds.length === 2) {
+                    for (let i = parseInt(bounds[0]); i <= parseInt(bounds[1]); i++) { if (i > 0 && i <= maxPages) pagesToKeep.add(i - 1); }
+                } else {
+                    let val = parseInt(part);
+                    if (val > 0 && val <= maxPages) pagesToKeep.add(val - 1);
+                }
+            });
+            const newPdf = await PDFDocument.create();
+            const indices = Array.from(pagesToKeep).sort((a,b) => a-b);
+            const copiedPages = await newPdf.copyPages(pdfDoc, indices);
+            copiedPages.forEach(page => newPdf.addPage(page));
+            downloadBlob(new Blob([await newPdf.save()], { type: 'application/pdf' }), '.pdf');
+        }
+
+        async function runMerge() {
+            const mergedPdf = await PDFDocument.create();
+            for (let file of currentFilesList) {
+                const copiedPages = await mergedPdf.copyPages(await PDFDocument.load(await file.arrayBuffer()), (await PDFDocument.load(await file.arrayBuffer())).getPageIndices());
+                copiedPages.forEach(page => mergedPdf.addPage(page));
+            }
+            downloadBlob(new Blob([await mergedPdf.save()], { type: 'application/pdf' }), '.pdf');
+        }
+
+        async function runUnlock() {
+            const pass = document.getElementById('opt-unlock-pass').value;
+            downloadBlob(new Blob([await (await PDFDocument.load(await currentFile.arrayBuffer(), { password: pass })).save()], { type: 'application/pdf' }), '.pdf');
+        }
+
+        async function runLock() {
+            const pass = document.getElementById('opt-lock-pass').value;
+            const buffer = await currentFile.arrayBuffer();
+            const base64File = btoa(new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), ''));
+            const htmlVault = `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"><title>Dokumen Terkunci</title><style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#121212;color:#fff;margin:0;}.box{background:#1E1E1E;padding:30px;border-radius:10px;text-align:center;border:1px solid #333;}input{padding:10px;width:80%;margin:15px 0;border-radius:5px;border:1px solid #555;background:#111;color:#fff;}button{background:#005BAC;color:white;border:none;padding:10px 20px;border-radius:5px;cursor:pointer;font-weight:bold;}</style></head><body><div class="box"><h2>🔒 Dokumen Terkunci</h2><p>Masukkan password untuk mendownload PDF.</p><input type="password" id="pass" placeholder="Password"><br><button onclick="unlock()">Buka & Download</button><p id="msg" style="color:red;"></p></div><script>const truePass="${pass}";const fileData="${base64File}";const fileName="${currentFile.name}";function unlock(){if(document.getElementById('pass').value===truePass){const byteCharacters=atob(fileData);const byteNumbers=new Array(byteCharacters.length);for(let i=0;i<byteCharacters.length;i++)byteNumbers[i]=byteCharacters.charCodeAt(i);const link=document.createElement('a');link.href=URL.createObjectURL(new Blob([new Uint8Array(byteNumbers)],{type:'application/pdf'}));link.download=fileName;link.click();document.getElementById('msg').style.color="#4CAF50";document.getElementById('msg').innerText="Berhasil! Mendownload...";}else{document.getElementById('msg').innerText="Password Salah!";}}<\/script></body></html>`;
+            downloadBlob(new Blob([htmlVault], { type: 'text/html' }), '.html');
+        }
+
+        async function runHeic() {
+            const format = document.getElementById('opt-heic-format').value;
+            const conversionResult = await heic2any({ blob: new Blob([await currentFile.arrayBuffer()]), toType: "image/jpeg", quality: 0.8 });
+            if (format === 'jpg') downloadBlob(conversionResult, '.jpg');
+            else if (format === 'pdf') {
+                const pdfDoc = await PDFDocument.create();
+                const image = await pdfDoc.embedJpg(await conversionResult.arrayBuffer());
+                const page = pdfDoc.addPage([image.width, image.height]);
+                page.drawImage(image, { x: 0, y: 0, width: image.width, height: image.height });
+                downloadBlob(new Blob([await pdfDoc.save()], { type: 'application/pdf' }), '.pdf');
+            }
+        }
+    </script>
+</body>
+<!-- Tambahkan ini tepat di atas </body> -->
+<script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js')
+                .then(reg => console.log('PWA Offline siap!'))
+                .catch(err => console.error('PWA gagal:', err));
+        });
+    }
+</script>
+</html>
