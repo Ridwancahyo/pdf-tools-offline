@@ -3,17 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>PDF Tools - Mobile & Desktop Workspace</title>
+    <title>Studio Tools - PDF & Image AI</title>
     
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#005BAC">
     <link rel="apple-touch-icon" href="icon-192.png">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     
+    <!-- Library Eksternal Lengkap -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/heic2any.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <!-- Library AI Background Removal -->
+    <script src="https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.4.3/dist/browser/bundle.umd.min.js"></script>
     
     <style>
         :root {
@@ -43,20 +44,19 @@
         body { 
             margin: 0; display: flex; height: 100vh; background: var(--bg-gradient); 
             color: var(--text-main); overflow: hidden;
-            padding-top: env(safe-area-inset-top);
-            padding-bottom: env(safe-area-inset-bottom);
+            padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);
         }
 
         .glass-panel { background: var(--glass-bg); backdrop-filter: blur(16px); border: 1px solid var(--glass-border); box-shadow: var(--shadow); border-radius: 20px; }
 
         /* SIDEBAR */
         .sidebar { width: 280px; margin: 1rem; display: flex; flex-direction: column; padding: 1.5rem 0; overflow-y: auto; z-index: 1000; }
-        .logo { font-size: 1.5rem; font-weight: 800; padding: 0 1.5rem 1rem; border-bottom: 1px solid var(--glass-border); margin-bottom: 1rem; letter-spacing: 1px; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 1.5rem; font-weight: 800; padding: 0 1.5rem 1rem; border-bottom: 1px solid var(--glass-border); margin-bottom: 0.5rem; letter-spacing: 1px; display: flex; justify-content: space-between; align-items: center; }
         .logo span { color: var(--bca-blue); }
         .close-sidebar { display: none; background: none; border: none; font-size: 1.5rem; color: var(--text-main); cursor: pointer; }
         
-        .menu-label { font-size: 0.75rem; color: var(--text-muted); padding: 0 1.5rem; margin-top: 1rem; margin-bottom: 0.5rem; text-transform: uppercase; font-weight: bold; }
-        .menu-item { padding: 0.8rem 1.5rem; cursor: pointer; display: flex; align-items: center; gap: 12px; text-decoration: none; font-size: 0.95rem; margin: 0.2rem 1rem; border-radius: 12px; min-height: 48px; }
+        .menu-label { font-size: 0.75rem; color: var(--text-muted); padding: 0 1.5rem; margin-top: 1rem; margin-bottom: 0.2rem; text-transform: uppercase; font-weight: bold; }
+        .menu-item { padding: 0.8rem 1.5rem; cursor: pointer; display: flex; align-items: center; gap: 12px; text-decoration: none; font-size: 0.9rem; margin: 0.2rem 1rem; border-radius: 12px; min-height: 44px; }
         .menu-item:hover, .menu-item.active { background-color: var(--bca-blue); color: white; box-shadow: 0 4px 15px rgba(0, 91, 172, 0.3); }
         
         .footer-credits { margin-top: auto; text-align: center; padding: 1rem; font-size: 0.85rem; color: var(--text-muted); font-weight: 600; border-top: 1px solid var(--glass-border); }
@@ -80,55 +80,31 @@
         .preview-panel.active { display: flex; }
         
         .preview-frame { 
-            flex: 1.2; 
-            border-radius: 12px; 
-            border: 1px solid var(--glass-border); 
-            background: #e9ecef; /* Warna netral pembungkus PDF */
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            position: relative; 
-            min-height: 350px; 
-            overflow: hidden;
-            box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
+            flex: 1.2; border-radius: 12px; border: 1px solid var(--glass-border); 
+            background: #e9ecef; display: flex; align-items: center; justify-content: center; 
+            position: relative; min-height: 350px; overflow: hidden; box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
         }
         
-        /* Iframe disesuaikan agar auto-fit */
-        .preview-frame iframe { 
-            width: 100%; 
-            height: 100%; 
-            border: none; 
-            position: absolute; 
-            top: 0; left: 0; right: 0; bottom: 0; 
-            background: white; 
+        .preview-frame iframe, .preview-frame img { 
+            width: 100%; height: 100%; border: none; position: absolute; 
+            top: 0; left: 0; right: 0; bottom: 0; background: white; object-fit: contain;
         }
 
-        /* Tombol Fullscreen Modern */
         .fullscreen-btn {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: rgba(0, 91, 172, 0.8);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            padding: 8px 12px;
-            cursor: pointer;
-            z-index: 20;
-            backdrop-filter: blur(4px);
-            font-weight: bold;
-            font-size: 1rem;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-            transition: 0.2s;
+            position: absolute; top: 10px; right: 10px; background: rgba(0, 91, 172, 0.8);
+            color: white; border: none; border-radius: 8px; padding: 8px 12px;
+            cursor: pointer; z-index: 20; backdrop-filter: blur(4px); font-weight: bold;
+            font-size: 0.9rem; box-shadow: 0 4px 6px rgba(0,0,0,0.2); transition: 0.2s;
         }
         .fullscreen-btn:hover { background: var(--bca-blue); transform: scale(1.05); }
 
-        .settings-panel { flex: 1; display: flex; flex-direction: column; gap: 1rem; overflow-y: auto; padding-right: 5px; }
-        input[type="text"], input[type="password"], select { width: 100%; padding: 14px; background: var(--input-bg); border: 1px solid var(--glass-border); color: var(--text-main); border-radius: 10px; font-size: 1rem; min-height: 48px; }
+        .settings-panel { flex: 1; display: flex; flex-direction: column; gap: 0.8rem; overflow-y: auto; padding-right: 5px; }
+        input[type="text"], input[type="password"], input[type="number"], select { width: 100%; padding: 12px; background: var(--input-bg); border: 1px solid var(--glass-border); color: var(--text-main); border-radius: 10px; font-size: 1rem; min-height: 48px; }
         input[type="range"] { width: 100%; margin: 15px 0; }
         
         .range-container { display: flex; align-items: center; gap: 15px; }
         .range-container span { font-weight: bold; min-width: 45px; text-align: right; }
+        .flex-row { display: flex; gap: 10px; }
 
         .btn-group { margin-top: auto; display: flex; gap: 10px; flex-wrap: wrap; }
         .btn { background-color: var(--bca-blue); color: white; border: none; padding: 14px 20px; border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 1rem; box-shadow: 0 4px 15px rgba(0, 91, 172, 0.3); flex: 2; min-height: 48px; min-width: 120px; text-align: center; }
@@ -142,19 +118,10 @@
             .sidebar.show { left: 0; box-shadow: 5px 0 30px rgba(0,0,0,0.5); }
             .close-sidebar, .hamburger { display: block; }
             .main-content { margin: 0; border-radius: 0; padding: 1.5rem 1rem; width: 100%; height: 100vh; }
-            
-            /* Pratinjau mengambil proporsi ideal di HP */
             .preview-panel { flex-direction: column; overflow-y: auto; gap: 1.2rem; display: none; }
             .preview-panel.active { display: flex; }
-            
-            .preview-frame { 
-                flex: none; 
-                height: 50vh; /* Memakan setengah tinggi layar HP */
-                min-height: 350px; 
-                width: 100%; 
-            }
+            .preview-frame { flex: none; height: 45vh; min-height: 300px; width: 100%; }
             .settings-panel { flex: none; overflow-y: visible; padding-bottom: 3rem; }
-            .drop-zone h3 { font-size: 1.2rem; }
         }
 
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -164,29 +131,33 @@
 
     <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
 
-    <!-- SIDEBAR -->
+    <!-- SIDEBAR KIRI -->
     <aside class="sidebar glass-panel" id="sidebar">
         <div class="logo">
             <div>PDF<span>TOOLS</span></div>
             <button class="close-sidebar" onclick="toggleSidebar()">✖</button>
         </div>
-        <div class="menu-label">Proteksi & Edit</div>
+        
+        <div class="menu-label">Pengelola PDF</div>
         <div class="menu-item active" onclick="nav('watermark')">🛡️ Watermark PDF</div>
         <div class="menu-item" onclick="nav('lock')">🔒 Protect PDF</div>
         <div class="menu-item" onclick="nav('unlock')">🔓 Unlock PDF</div>
         <div class="menu-item" onclick="nav('removepages')">✂️ Hapus Halaman</div>
         <div class="menu-item" onclick="nav('merge')">📑 Gabung PDF</div>
-        
-        <div class="menu-label">Konversi & Optimasi</div>
         <div class="menu-item" onclick="nav('compress')">🗜️ Compress PDF</div>
-        <div class="menu-item" onclick="nav('pdf2img')">🖼️ PDF to Image</div>
-        <div class="menu-item" onclick="nav('img2pdf')">📄 Image to PDF</div>
+        
+        <div class="menu-label">Konversi & Gambar AI</div>
+        <div class="menu-item" onclick="nav('pdfimg-combo')">🔄 Konversi Dokumen</div>
+        <div class="menu-item" onclick="nav('img-converter')">🔀 Konversi Gambar</div>
+        <div class="menu-item" onclick="nav('resize-img')">📏 Resize Gambar</div>
+        <div class="menu-item" onclick="nav('upscale-img')">✨ Upscale Gambar</div>
+        <div class="menu-item" onclick="nav('remove-bg')">🪄 Hapus Background</div>
         <div class="menu-item" onclick="nav('heic')">📱 HEIC Converter</div>
 
         <div class="footer-credits">Created by Ridwan</div>
     </aside>
 
-    <!-- MAIN CONTENT -->
+    <!-- KONTEN UTAMA -->
     <main class="main-content glass-panel">
         <div class="top-bar">
             <div class="header-left">
@@ -200,19 +171,20 @@
             <div class="drop-zone" id="drop-zone">
                 <div style="font-size: 3.5rem; margin-bottom: 0.5rem;">☁️</div>
                 <h3>Sentuh atau Tarik Berkas</h3>
-                <p style="color: var(--text-muted); font-size: 0.9rem;">Mendukung PDF & Semua Gambar</p>
+                <p id="upload-desc" style="color: var(--text-muted); font-size: 0.9rem;">Mendukung PDF & Gambar</p>
             </div>
             <input type="file" id="file-input" style="display: none;">
         </div>
 
         <div id="preview-section" class="preview-panel">
             <div class="preview-frame" id="preview-container">
-                <button class="fullscreen-btn" onclick="openFullscreen()" title="Lihat Layar Penuh">⛶ Perbesar</button>
-                <iframe id="pdf-preview"></iframe>
+                <button class="fullscreen-btn" onclick="openFullscreen()" title="Layar Penuh">⛶ Perbesar</button>
+                <iframe id="pdf-preview" style="display:none;"></iframe>
+                <img id="img-preview" style="display:none;" />
                 <p id="preview-loading" style="display: none; position: absolute; background: rgba(0,0,0,0.7); color: white; padding: 10px 20px; border-radius: 20px; font-weight: bold; z-index: 10;">Memuat...</p>
             </div>
             <div class="settings-panel">
-                <h3 style="margin-top: 0;">Pengaturan</h3>
+                <h3 style="margin-top: 0; margin-bottom: 0.5rem;">Pengaturan</h3>
                 <label style="font-weight: 600; font-size: 0.9rem;">Nama File Baru:</label>
                 <input type="text" id="rename-input" placeholder="NamaFileBaru">
                 <div id="dynamic-options"></div>
@@ -220,14 +192,10 @@
                     <button class="btn secondary" onclick="resetWorkspace()">Batal</button>
                     <button class="btn" onclick="processFile()" id="process-btn">Download</button>
                 </div>
-                <div id="status-msg" style="text-align: center; font-weight: bold; margin-top: 15px;"></div>
+                <div id="status-msg" style="text-align: center; font-weight: bold; margin-top: 15px; font-size: 0.9rem;"></div>
             </div>
         </div>
     </main>
-
-    <script>
-        if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js').catch(err => console.error('PWA gagal:', err)); }); }
-    </script>
 
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -245,12 +213,12 @@
             overlay.style.display = sidebar.classList.contains('show') ? 'block' : 'none';
         }
 
-        // Fitur Layar Penuh (Fullscreen) untuk Frame Preview
+        // PERBAIKAN FITUR FULLSCREEN (Target container, bukan iframe)
         function openFullscreen() {
-            const elem = document.getElementById("pdf-preview");
+            const elem = document.getElementById("preview-container");
             if (elem.requestFullscreen) { elem.requestFullscreen(); }
-            else if (elem.webkitRequestFullscreen) { elem.webkitRequestFullscreen(); } // Safari
-            else if (elem.msRequestFullscreen) { elem.msRequestFullscreen(); } // IE11
+            else if (elem.webkitRequestFullscreen) { elem.webkitRequestFullscreen(); }
+            else if (elem.msRequestFullscreen) { elem.msRequestFullscreen(); }
         }
 
         const dropZone = document.getElementById('drop-zone');
@@ -277,13 +245,28 @@
             if(window.innerWidth <= 900) { toggleSidebar(); }
             resetWorkspace();
 
-            const titles = { 'watermark': 'Watermark PDF', 'lock': 'Protect PDF', 'unlock': 'Unlock PDF', 'removepages': 'Hapus Halaman', 'merge': 'Gabung PDF', 'compress': 'Compress PDF', 'pdf2img': 'PDF ke Gambar', 'img2pdf': 'Gambar ke PDF', 'heic': 'HEIC Converter' };
+            const titles = { 
+                'watermark': 'Watermark PDF', 'lock': 'Protect PDF', 'unlock': 'Unlock PDF', 
+                'removepages': 'Hapus Halaman', 'merge': 'Gabung PDF', 'compress': 'Compress PDF', 
+                'pdfimg-combo': 'Konversi Dokumen', 'img-converter': 'Konversi Ekstensi Gambar', 
+                'resize-img': 'Resize Dimensi Gambar', 'upscale-img': 'High-Res Upscale Gambar',
+                'remove-bg': 'AI Background Remover', 'heic': 'HEIC Converter' 
+            };
             document.getElementById('page-title').innerText = titles[tool];
             
-            fileInput.multiple = (tool === 'merge' || tool === 'img2pdf');
-            if (tool === 'heic') fileInput.accept = ".heic";
-            else if (tool === 'img2pdf') fileInput.accept = "image/*";
-            else fileInput.accept = "application/pdf";
+            // Konfigurasi Input Default
+            fileInput.multiple = (tool === 'merge' || tool === 'pdfimg-combo');
+            const desc = document.getElementById('upload-desc');
+            
+            if (['img-converter', 'resize-img', 'upscale-img', 'remove-bg'].includes(tool)) {
+                fileInput.accept = "image/png, image/jpeg, image/webp"; desc.innerText = "Mendukung JPG, PNG, WEBP";
+            } else if (tool === 'heic') {
+                fileInput.accept = ".heic"; desc.innerText = "Mendukung file Apple .HEIC";
+            } else if (tool === 'pdfimg-combo') {
+                fileInput.accept = "application/pdf, image/png, image/jpeg, image/webp"; desc.innerText = "Mendukung PDF atau Multi-Gambar";
+            } else {
+                fileInput.accept = "application/pdf"; desc.innerText = "Mendukung file dokumen PDF";
+            }
         }
 
         function resetWorkspace() {
@@ -292,55 +275,120 @@
             fileInput.value = "";
             document.getElementById('status-msg').innerText = "";
             if (previewBlobUrl) URL.revokeObjectURL(previewBlobUrl);
-            currentFile = null;
-            currentFilesList = [];
+            currentFile = null; currentFilesList = [];
         }
 
         function handleFileSelect(event) {
             const files = event.target.files;
             if (files.length === 0) return;
 
-            if (currentTool === 'merge' || currentTool === 'img2pdf') { currentFilesList = Array.from(files); currentFile = files[0]; } 
+            if (fileInput.multiple) { currentFilesList = Array.from(files); currentFile = files[0]; } 
             else { currentFile = files[0]; }
 
             document.getElementById('upload-section').classList.remove('active');
             document.getElementById('preview-section').classList.add('active');
             
             const iframe = document.getElementById('pdf-preview');
+            const imgEl = document.getElementById('img-preview');
             const fsBtn = document.querySelector('.fullscreen-btn');
             
-            if (currentTool === 'heic' || currentTool === 'img2pdf') {
-                iframe.style.display = 'none'; fsBtn.style.display = 'none';
-                iframe.src = '';
+            iframe.style.display = 'none'; imgEl.style.display = 'none'; fsBtn.style.display = 'block';
+            previewBlobUrl = URL.createObjectURL(currentFile);
+            
+            if (currentTool === 'heic') {
+                fsBtn.style.display = 'none'; document.getElementById('preview-loading').innerText = "Pratinjau tidak didukung";
+                document.getElementById('preview-loading').style.display = 'block';
+            } else if (currentFile.type.startsWith('image/')) {
+                imgEl.src = previewBlobUrl; imgEl.style.display = 'block';
             } else {
-                iframe.style.display = 'block'; fsBtn.style.display = 'block';
-                previewBlobUrl = URL.createObjectURL(currentFile);
-                // Parameter rahasia #view=FitH memaksa PDF pas ke lebar layar tanpa terpotong
-                iframe.src = previewBlobUrl + "#toolbar=0&view=FitH";
+                iframe.src = previewBlobUrl + "#toolbar=0&view=FitH"; iframe.style.display = 'block';
             }
 
             const originalName = currentFile.name.substring(0, currentFile.name.lastIndexOf('.'));
-            document.getElementById('rename-input').value = originalName + "_Edited";
+            document.getElementById('rename-input').value = originalName + (currentTool.includes('img') ? "_Image" : "_Edited");
 
             buildDynamicOptions();
             if(currentTool === 'watermark') updateLivePreview();
+            if(currentTool === 'resize-img') extractImageDimensions();
         }
 
+        // Mengekstrak ukuran asli gambar untuk fitur Resize
+        function extractImageDimensions() {
+            const img = new Image();
+            img.onload = function() {
+                document.getElementById('opt-resize-w').value = this.width;
+                document.getElementById('opt-resize-h').value = this.height;
+            }
+            img.src = previewBlobUrl;
+        }
+
+        // UI OPTION DINAMIS (Telah dirombak sesuai fitur baru)
         function buildDynamicOptions() {
             const container = document.getElementById('dynamic-options');
             container.innerHTML = ''; 
+            
             if (currentTool === 'watermark') {
-                container.innerHTML = `<label style="margin-top:1rem; display:block; font-weight:600; font-size: 0.9rem;">Teks Watermark:</label><input type="text" id="opt-wm-text" value="CONFIDENTIAL" oninput="updateLivePreview()"><label style="margin-top:1rem; display:block; font-weight:600; font-size: 0.9rem;">Transparansi (Opacity):</label><div class="range-container"><input type="range" id="opt-wm-opacity" min="0.05" max="1" step="0.05" value="0.15" oninput="updateLivePreview()"><span id="opacity-val">15%</span></div>`;
+                container.innerHTML = `<label style="margin-top:0.5rem; display:block; font-weight:600; font-size: 0.9rem;">Teks Watermark:</label><input type="text" id="opt-wm-text" value="CONFIDENTIAL" oninput="updateLivePreview()"><label style="margin-top:0.5rem; display:block; font-weight:600; font-size: 0.9rem;">Transparansi (Opacity):</label><div class="range-container"><input type="range" id="opt-wm-opacity" min="0.05" max="1" step="0.05" value="0.15" oninput="updateLivePreview()"><span id="opacity-val">15%</span></div>`;
             } else if (currentTool === 'compress') {
-                container.innerHTML = `<label style="margin-top:1rem; display:block; font-weight:600; font-size: 0.9rem;">Level Kompresi:</label><select id="opt-compress-level"><option value="normal">Normal (Aman & Utuh)</option><option value="high">Ekstrem (Ubah Gambar Kualitas Rendah)</option></select>`;
+                container.innerHTML = `<label style="margin-top:0.5rem; display:block; font-weight:600; font-size: 0.9rem;">Level Kompresi:</label><select id="opt-compress-level"><option value="normal">Normal (Aman & Utuh)</option><option value="high">Ekstrem (Rasterize Resolusi Rendah)</option></select>`;
             } else if (currentTool === 'removepages') {
-                container.innerHTML = `<label style="margin-top:1rem; display:block; font-weight:600; font-size: 0.9rem;">Halaman yang DISIMPAN (Contoh: 1,3,4-5):</label><input type="text" id="opt-pages" placeholder="Ketik nomor halaman">`;
+                container.innerHTML = `<label style="margin-top:0.5rem; display:block; font-weight:600; font-size: 0.9rem;">Halaman yang DISIMPAN (Misal: 1,3,4-5):</label><input type="text" id="opt-pages" placeholder="Ketik nomor halaman">`;
             } else if (currentTool === 'lock') {
-                container.innerHTML = `<label style="margin-top:1rem; display:block; font-weight:600; font-size: 0.9rem;">Masukkan Password Baru:</label><input type="password" id="opt-lock-pass" placeholder="Buat Password">`;
+                container.innerHTML = `<label style="margin-top:0.5rem; display:block; font-weight:600; font-size: 0.9rem;">Masukkan Password Baru:</label><input type="password" id="opt-lock-pass" placeholder="Buat Password">`;
             } else if (currentTool === 'unlock') {
-                container.innerHTML = `<label style="margin-top:1rem; display:block; font-weight:600; font-size: 0.9rem;">Password PDF Saat Ini:</label><input type="password" id="opt-unlock-pass" placeholder="Password PDF">`;
+                container.innerHTML = `<label style="margin-top:0.5rem; display:block; font-weight:600; font-size: 0.9rem;">Password PDF Saat Ini:</label><input type="password" id="opt-unlock-pass" placeholder="Password PDF">`;
             } else if (currentTool === 'heic') {
-                container.innerHTML = `<label style="margin-top:1rem; display:block; font-weight:600; font-size: 0.9rem;">Pilih Format Output:</label><select id="opt-heic-format"><option value="jpg">Gambar (.JPG)</option><option value="pdf">Dokumen (.PDF)</option></select>`;
+                container.innerHTML = `<label style="margin-top:0.5rem; display:block; font-weight:600; font-size: 0.9rem;">Pilih Format Output:</label><select id="opt-heic-format"><option value="jpg">Gambar (.JPG)</option><option value="png">Gambar (.PNG)</option><option value="pdf">Dokumen (.PDF)</option></select>`;
+            } 
+            // FITUR BARU: KOMBINASI PDF KE GAMBAR & SEBALIKNYA
+            else if (currentTool === 'pdfimg-combo') {
+                container.innerHTML = `
+                    <label style="margin-top:0.5rem; display:block; font-weight:600; font-size: 0.9rem;">Pilih Konversi:</label>
+                    <select id="opt-combo-mode">
+                        <option value="pdf2img">Ekstrak PDF menjadi Gambar (JPG)</option>
+                        <option value="img2pdf">Jadikan File Gambar menjadi PDF</option>
+                    </select>
+                    <p style="font-size:0.8rem; color:var(--text-muted); margin-top:5px;">*Jika gambar ke PDF, Anda bisa memilih banyak gambar sekaligus saat upload.</p>
+                `;
+            }
+            // FITUR BARU: KONVERSI GAMBAR (JPG, PNG, WEBP)
+            else if (currentTool === 'img-converter') {
+                container.innerHTML = `
+                    <label style="margin-top:0.5rem; display:block; font-weight:600; font-size: 0.9rem;">Ubah ke Format:</label>
+                    <select id="opt-img-format">
+                        <option value="image/jpeg">JPEG / JPG (Kecil, ada background putih)</option>
+                        <option value="image/png">PNG (Transparan, Kualitas Tinggi)</option>
+                        <option value="image/webp">WEBP (Kecil, Transparan, Modern)</option>
+                    </select>
+                `;
+            }
+            // FITUR BARU: RESIZE GAMBAR (Atur Dimensi)
+            else if (currentTool === 'resize-img') {
+                container.innerHTML = `
+                    <label style="margin-top:0.5rem; display:block; font-weight:600; font-size: 0.9rem;">Dimensi (Lebar x Tinggi):</label>
+                    <div class="flex-row">
+                        <input type="number" id="opt-resize-w" placeholder="Lebar (px)">
+                        <span style="display:flex; align-items:center;">x</span>
+                        <input type="number" id="opt-resize-h" placeholder="Tinggi (px)">
+                    </div>
+                `;
+            }
+            // FITUR BARU: UPSCALE GAMBAR
+            else if (currentTool === 'upscale-img') {
+                container.innerHTML = `
+                    <label style="margin-top:0.5rem; display:block; font-weight:600; font-size: 0.9rem;">Skala Perbesaran Resolusi:</label>
+                    <select id="opt-upscale-factor">
+                        <option value="2">2x Lebih Besar (Detail Tajam)</option>
+                        <option value="4">4x Lebih Besar (Ultra High-Res)</option>
+                    </select>
+                    <p style="font-size:0.8rem; color:var(--text-muted); margin-top:5px;">*Upscale offline menggunakan metode Canvas High-Smoothing.</p>
+                `;
+            }
+            // FITUR BARU: REMOVE BACKGROUND (AI)
+            else if (currentTool === 'remove-bg') {
+                container.innerHTML = `
+                    <p style="font-size:0.85rem; color:var(--bca-blue); background:rgba(0,91,172,0.1); padding:10px; border-radius:8px; margin-top:0.5rem;"><b>Catatan AI:</b> Fitur ini memotong latar belakang secara cerdas menggunakan Machine Learning. Pada penggunaan pertama, sistem akan mendownload model AI (~40MB).</p>
+                `;
             }
         }
 
@@ -375,7 +423,7 @@
 
         function downloadBlob(blob, ext, suffix = "") {
             let filename = document.getElementById('rename-input').value.trim();
-            if (!filename) filename = "PDFTools";
+            if (!filename) filename = "StudioTools";
             if (suffix) filename += suffix; 
             if (!filename.toLowerCase().endsWith(ext)) filename += ext;
             const url = URL.createObjectURL(blob);
@@ -384,20 +432,16 @@
             a.click(); URL.revokeObjectURL(url);
         }
 
-        function convertAnyImageToJpgBuffer(file) {
+        function loadCanvasImage(file) {
             return new Promise((resolve, reject) => {
                 const img = new Image();
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = img.width; canvas.height = img.height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0);
-                    canvas.toBlob(async (blob) => resolve(await blob.arrayBuffer()), 'image/jpeg', 0.9);
-                };
-                img.onerror = reject; img.src = URL.createObjectURL(file);
+                img.onload = () => resolve(img);
+                img.onerror = reject; 
+                img.src = URL.createObjectURL(file);
             });
         }
 
+        // SISTEM ROUTER PEMROSESAN
         async function processFile() {
             const status = document.getElementById('status-msg');
             status.innerText = "Memproses..."; status.style.color = "var(--text-main)";
@@ -405,21 +449,123 @@
 
             try {
                 await new Promise(resolve => setTimeout(resolve, 100)); 
+                
                 if (currentTool === 'watermark') await runWatermark();
                 else if (currentTool === 'removepages') await runRemovePages();
                 else if (currentTool === 'merge') await runMerge();
                 else if (currentTool === 'compress') await runCompress();
-                else if (currentTool === 'pdf2img') await runPdfToImg();
-                else if (currentTool === 'img2pdf') await runImgToPdf();
                 else if (currentTool === 'unlock') await runUnlock();
                 else if (currentTool === 'lock') await runLock();
                 else if (currentTool === 'heic') await runHeic();
-                status.innerText = "✓ Berhasil diunduh!"; status.style.color = "#4CAF50";
+                // Fitur Baru
+                else if (currentTool === 'pdfimg-combo') await runPdfImgCombo();
+                else if (currentTool === 'img-converter') await runImgConverter();
+                else if (currentTool === 'resize-img') await runResizeImg();
+                else if (currentTool === 'upscale-img') await runUpscaleImg();
+                else if (currentTool === 'remove-bg') await runRemoveBg();
+                
+                status.innerText = "✓ Berhasil diselesaikan!"; status.style.color = "#4CAF50";
             } catch (e) { status.innerText = "⚠ Gagal: " + e.message; status.style.color = "#D32F2F"; }
             
             document.getElementById('process-btn').innerText = "Download"; document.getElementById('process-btn').disabled = false;
         }
         
+        // FUNGSI KOMBINASI: PDF ke GAMBAR atau GAMBAR ke PDF
+        async function runPdfImgCombo() {
+            const mode = document.getElementById('opt-combo-mode').value;
+            
+            if (mode === 'pdf2img') {
+                if(!currentFile.type.includes('pdf')) throw new Error("File yang diupload bukan PDF!");
+                const pdf = await pdfjsLib.getDocument({data: await currentFile.arrayBuffer()}).promise;
+                for(let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const viewport = page.getViewport({ scale: 2.0 }); 
+                    const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d');
+                    canvas.width = viewport.width; canvas.height = viewport.height;
+                    await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+                    canvas.toBlob(blob => { downloadBlob(blob, '.jpg', `_Halaman_${i}`); }, 'image/jpeg', 0.9);
+                    await new Promise(r => setTimeout(r, 400)); 
+                }
+            } else if (mode === 'img2pdf') {
+                const pdfDoc = await PDFDocument.create();
+                for (let file of currentFilesList) {
+                    const img = await loadCanvasImage(file);
+                    const canvas = document.createElement('canvas'); canvas.width = img.width; canvas.height = img.height;
+                    canvas.getContext('2d').drawImage(img, 0, 0);
+                    const imgBuffer = await new Promise(r => canvas.toBlob(async b => r(await b.arrayBuffer()), 'image/jpeg', 0.9));
+                    const image = await pdfDoc.embedJpg(imgBuffer);
+                    const page = pdfDoc.addPage([image.width, image.height]);
+                    page.drawImage(image, { x: 0, y: 0, width: image.width, height: image.height });
+                }
+                downloadBlob(new Blob([await pdfDoc.save()], { type: 'application/pdf' }), '.pdf');
+            }
+        }
+
+        // FUNGSI: KONVERTER FORMAT GAMBAR
+        async function runImgConverter() {
+            const format = document.getElementById('opt-img-format').value; // image/jpeg, image/png, image/webp
+            let ext = format === 'image/jpeg' ? '.jpg' : format === 'image/png' ? '.png' : '.webp';
+            
+            const img = await loadCanvasImage(currentFile);
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width; canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            
+            // Jika merender PNG transparan ke JPG, beri background putih agar rapi
+            if(format === 'image/jpeg') { ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+            ctx.drawImage(img, 0, 0);
+            
+            canvas.toBlob(blob => downloadBlob(blob, ext), format, 0.9);
+        }
+
+        // FUNGSI: RESIZE GAMBAR
+        async function runResizeImg() {
+            const w = parseInt(document.getElementById('opt-resize-w').value);
+            const h = parseInt(document.getElementById('opt-resize-h').value);
+            if(!w || !h) throw new Error("Lebar dan Tinggi harus diisi angka yang valid!");
+            
+            const img = await loadCanvasImage(currentFile);
+            const canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            // imageSmoothing menjamin piksel ditarik secara rapi
+            const ctx = canvas.getContext('2d');
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = "high";
+            ctx.drawImage(img, 0, 0, w, h);
+            
+            canvas.toBlob(blob => downloadBlob(blob, '.png'), 'image/png');
+        }
+
+        // FUNGSI: UPSCALE GAMBAR (Resolusi Tinggi)
+        async function runUpscaleImg() {
+            const scale = parseInt(document.getElementById('opt-upscale-factor').value);
+            
+            const img = await loadCanvasImage(currentFile);
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width * scale; 
+            canvas.height = img.height * scale;
+            
+            const ctx = canvas.getContext('2d');
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = "high";
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            
+            canvas.toBlob(blob => downloadBlob(blob, '.png', `_${scale}x_Upscaled`), 'image/png');
+        }
+
+        // FUNGSI: REMOVE BACKGROUND (IMGLY AI)
+        async function runRemoveBg() {
+            if(typeof imglyRemoveBackground === 'undefined') throw new Error("Sistem AI gagal dimuat. Pastikan ada koneksi internet saat mengklik menu ini pertama kali.");
+            document.getElementById('status-msg').innerText = "AI sedang menyeleksi objek (Mohon tunggu beberapa detik)...";
+            
+            // Konfigurasi agar library mendownload model WASM/ONNX dari CDN resminya
+            const config = { publicPath: 'https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.4.3/dist/' };
+            const blob = await imglyRemoveBackground(currentFile, config);
+            
+            downloadBlob(blob, '.png', '_No_BG');
+        }
+
+        // FUNGSI LAMA (Tetap dipertahankan)
         async function runWatermark() {
             const text = document.getElementById('opt-wm-text').value;
             const opacity = parseFloat(document.getElementById('opt-wm-opacity').value);
@@ -450,29 +596,6 @@
                 }
                 downloadBlob(new Blob([await newPdf.save()], { type: 'application/pdf' }), '.pdf');
             }
-        }
-
-        async function runPdfToImg() {
-            const pdf = await pdfjsLib.getDocument({data: await currentFile.arrayBuffer()}).promise;
-            for(let i = 1; i <= pdf.numPages; i++) {
-                const page = await pdf.getPage(i);
-                const viewport = page.getViewport({ scale: 2.0 }); 
-                const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d');
-                canvas.width = viewport.width; canvas.height = viewport.height;
-                await page.render({ canvasContext: ctx, viewport: viewport }).promise;
-                canvas.toBlob(blob => { downloadBlob(blob, '.jpg', `_Halaman_${i}`); }, 'image/jpeg', 0.9);
-                await new Promise(r => setTimeout(r, 400)); 
-            }
-        }
-
-        async function runImgToPdf() {
-            const pdfDoc = await PDFDocument.create();
-            for (let file of currentFilesList) {
-                const image = await pdfDoc.embedJpg(await convertAnyImageToJpgBuffer(file));
-                const page = pdfDoc.addPage([image.width, image.height]);
-                page.drawImage(image, { x: 0, y: 0, width: image.width, height: image.height });
-            }
-            downloadBlob(new Blob([await pdfDoc.save()], { type: 'application/pdf' }), '.pdf');
         }
 
         async function runRemovePages() {
@@ -507,8 +630,9 @@
 
         async function runHeic() {
             const format = document.getElementById('opt-heic-format').value;
-            const conversionResult = await heic2any({ blob: new Blob([await currentFile.arrayBuffer()]), toType: "image/jpeg", quality: 0.8 });
+            const conversionResult = await heic2any({ blob: new Blob([await currentFile.arrayBuffer()]), toType: format === 'png' ? "image/png" : "image/jpeg", quality: 0.8 });
             if (format === 'jpg') downloadBlob(conversionResult, '.jpg');
+            else if (format === 'png') downloadBlob(conversionResult, '.png');
             else if (format === 'pdf') {
                 const pdfDoc = await PDFDocument.create();
                 const image = await pdfDoc.embedJpg(await conversionResult.arrayBuffer());
