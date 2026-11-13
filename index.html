@@ -13,8 +13,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/heic2any.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <!-- Library AI Background Removal -->
-    <script src="https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.4.3/dist/browser/bundle.umd.min.js"></script>
+    
+    <!-- Library AI Background Removal (Internet Required) -->
+    <script src="https://unpkg.com/@imgly/background-removal@1.4.3/dist/browser/bundle.umd.min.js"></script>
     
     <style>
         :root {
@@ -89,7 +90,6 @@
             width: 100%; height: 100%; border: none; position: absolute; 
             top: 0; left: 0; right: 0; bottom: 0; background: transparent; object-fit: contain;
         }
-        /* Motif catur untuk melihat background transparan secara jelas */
         .checkerboard-bg {
             background-image: 
                 linear-gradient(45deg, #ccc 25%, transparent 25%), 
@@ -218,7 +218,6 @@
         let currentFilesList = [];
         let previewBlobUrl = null; 
         
-        // Caching untuk AI Background Removal agar tidak memproses ulang file yang sama berulang kali
         let noBgCache = { file: null, blobUrl: null };
 
         function toggleSidebar() {
@@ -289,14 +288,12 @@
             document.getElementById('status-msg').innerText = "";
             if (previewBlobUrl) URL.revokeObjectURL(previewBlobUrl);
             
-            // Bersihkan frame
             document.getElementById('preview-container').classList.remove('checkerboard-bg');
             document.getElementById('pdf-preview').style.display = 'none';
             document.getElementById('img-preview').style.display = 'none';
             
             currentFile = null; currentFilesList = [];
             
-            // Hapus cache AI jika ada
             if (noBgCache.blobUrl) { URL.revokeObjectURL(noBgCache.blobUrl); noBgCache = { file: null, blobUrl: null }; }
         }
 
@@ -321,8 +318,7 @@
                 fsBtn.style.display = 'none'; document.getElementById('preview-loading').innerText = "Pratinjau tidak didukung";
                 document.getElementById('preview-loading').style.display = 'block';
             } else if (currentFile.type.startsWith('image/')) {
-                // Tambahkan background checkerboard jika tool-nya remove-bg atau format transparan
-                if(currentTool === 'remove-bg' || currentTool === 'img-converter') document.getElementById('preview-container').classList.add('checkerboard-bg');
+                if(currentTool === 'remove-bg') document.getElementById('preview-container').classList.add('checkerboard-bg');
                 else document.getElementById('preview-container').classList.remove('checkerboard-bg');
                 
                 imgEl.src = previewBlobUrl; imgEl.style.display = 'block';
@@ -349,7 +345,6 @@
             img.src = previewBlobUrl;
         }
 
-        // PEMBUATAN OPSI DINAMIS UI
         function buildDynamicOptions() {
             const container = document.getElementById('dynamic-options');
             container.innerHTML = ''; 
@@ -366,19 +361,20 @@
                 container.innerHTML = `<label style="margin-top:0.5rem; display:block; font-weight:600; font-size: 0.9rem;">Password PDF Saat Ini:</label><input type="password" id="opt-unlock-pass" placeholder="Password PDF">`;
             } else if (currentTool === 'pdfimg-combo') {
                 container.innerHTML = `<label style="margin-top:0.5rem; display:block; font-weight:600; font-size: 0.9rem;">Pilih Konversi:</label><select id="opt-combo-mode"><option value="pdf2img">Ekstrak PDF menjadi Gambar (JPG)</option><option value="img2pdf">Jadikan File Gambar menjadi PDF</option></select>`;
-            } else if (currentTool === 'img-converter') {
-                // Ekstrak nama asli untuk ditampilkan
+            } 
+            // MENU KONVERSI GAMBAR (3 OPSI SAJA)
+            else if (currentTool === 'img-converter') {
                 let ext = currentFile.name.split('.').pop().toUpperCase();
                 container.innerHTML = `
                     <div style="background: var(--glass-border); padding: 10px; border-radius: 8px; margin-bottom: 10px;">
-                        <span style="font-size: 0.85rem; color: var(--text-muted);">Ekstensi file Anda saat ini:</span><br>
+                        <span style="font-size: 0.85rem; color: var(--text-muted);">Ekstensi file saat ini:</span><br>
                         <b style="font-size: 1.1rem;">.${ext}</b>
                     </div>
                     <label style="margin-top:0.5rem; display:block; font-weight:600; font-size: 0.9rem;">Ubah format menjadi:</label>
                     <select id="opt-img-format">
-                        <option value="image/jpeg">JPG / JPEG</option>
-                        <option value="image/png">PNG</option>
-                        <option value="image/webp">WEBP</option>
+                        <option value="jpg">JPG</option>
+                        <option value="jpeg">JPEG</option>
+                        <option value="png">PNG</option>
                     </select>
                 `;
             } else if (currentTool === 'resize-img') {
@@ -387,7 +383,6 @@
                 container.innerHTML = `<label style="margin-top:0.5rem; display:block; font-weight:600; font-size: 0.9rem;">Skala Perbesaran Resolusi:</label><select id="opt-upscale-factor"><option value="2">2x Lebih Besar</option><option value="4">4x Lebih Besar (Ultra High-Res)</option></select>`;
             } else if (currentTool === 'remove-bg') {
                 container.innerHTML = `
-                    <p style="font-size:0.8rem; color:var(--bca-blue); background:rgba(0,91,172,0.1); padding:10px; border-radius:8px; margin-top:0.5rem;"><b>Catatan AI:</b> Jika ini pertama kali dibuka, AI membutuhkan waktu untuk mengunduh model data.</p>
                     <label class="checkbox-container">
                         <input type="checkbox" id="opt-bg-transparent" checked onchange="toggleColorPicker(); updateLivePreview();"> 
                         Latar Belakang Transparan
@@ -400,7 +395,6 @@
             }
         }
 
-        // Toggling color picker saat checkbox transparan diklik
         function toggleColorPicker() {
             const isTrans = document.getElementById('opt-bg-transparent').checked;
             document.getElementById('color-picker-wrapper').style.display = isTrans ? 'none' : 'block';
@@ -419,7 +413,6 @@
         async function updateLivePreview() {
             if (!currentFile) return;
 
-            // PREVIEW WATERMARK PDF
             if (currentTool === 'watermark') {
                 const text = document.getElementById('opt-wm-text').value;
                 const opacityVal = document.getElementById('opt-wm-opacity').value;
@@ -446,28 +439,29 @@
                     document.getElementById('preview-loading').style.display = 'none';
                 }, 800); 
             }
-            // PREVIEW AI BACKGROUND REMOVAL & GANTI WARNA
+            // AI BACKGROUND REMOVAL & PREVIEW
             else if (currentTool === 'remove-bg') {
                 const isTrans = document.getElementById('opt-bg-transparent').checked;
                 const color = document.getElementById('opt-bg-color').value;
                 
-                // Debouncing untuk mencegah render beruntun saat menggulir color picker
                 clearTimeout(previewTimeout);
                 previewTimeout = setTimeout(async () => {
-                    document.getElementById('preview-loading').innerText = "AI Sedang Menyeleksi Objek...";
+                    document.getElementById('preview-loading').innerText = "AI Memproses...";
                     document.getElementById('preview-loading').style.display = 'block';
 
                     try {
-                        // Jalankan AI HANYA jika cache kosong untuk file yang sama
                         if (noBgCache.file !== currentFile) {
-                            if(typeof imglyRemoveBackground === 'undefined') throw new Error("Library AI tidak dimuat.");
-                            const blob = await imglyRemoveBackground(currentFile);
+                            if(typeof imglyRemoveBackground === 'undefined') throw new Error("Library AI gagal dimuat.");
+                            
+                            // Menghubungkan secara eksplisit ke CDN unpkg yang andal untuk memuat model
+                            const config = { publicPath: 'https://unpkg.com/@imgly/background-removal@1.4.3/dist/' };
+                            const blob = await imglyRemoveBackground(currentFile, config);
+                            
                             if (noBgCache.blobUrl) URL.revokeObjectURL(noBgCache.blobUrl);
                             noBgCache.file = currentFile;
                             noBgCache.blobUrl = URL.createObjectURL(blob);
                         }
 
-                        // Menggambar hasil AI + Latar Belakang ke Canvas
                         const img = await loadCanvasImage(noBgCache.blobUrl);
                         const canvas = document.createElement('canvas');
                         canvas.width = img.width; canvas.height = img.height;
@@ -495,18 +489,30 @@
             }
         }
 
+        // FUNGSI DOWNLOAD DIPERBARUI UNTUK HP
         function downloadBlob(blob, ext, suffix = "") {
             let filename = document.getElementById('rename-input').value.trim();
             if (!filename) filename = "StudioTools";
             if (suffix) filename += suffix; 
             if (!filename.toLowerCase().endsWith(ext)) filename += ext;
+            
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url; a.download = filename;
-            a.click(); URL.revokeObjectURL(url);
+            a.style.display = 'none';
+            a.href = url; 
+            a.download = filename;
+            
+            // Penambahan appendChild krusial untuk memaksa "Save to Files" di perangkat mobile
+            document.body.appendChild(a);
+            a.click();
+            
+            // Pembersihan memori dengan jeda waktu agar unduhan tidak terputus
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 500);
         }
 
-        // SISTEM ROUTER PEMROSESAN
         async function processFile() {
             const status = document.getElementById('status-msg');
             status.innerText = "Memproses..."; status.style.color = "var(--text-main)";
@@ -534,7 +540,6 @@
             document.getElementById('process-btn').innerText = "Download"; document.getElementById('process-btn').disabled = false;
         }
         
-        // FUNGSI KOMBINASI: PDF ke GAMBAR atau GAMBAR ke PDF
         async function runPdfImgCombo() {
             const mode = document.getElementById('opt-combo-mode').value;
             if (mode === 'pdf2img') {
@@ -564,24 +569,27 @@
             }
         }
 
-        // FUNGSI: KONVERTER FORMAT GAMBAR
+        // FUNGSI KONVERSI GAMBAR TERBARU
         async function runImgConverter() {
-            const format = document.getElementById('opt-img-format').value; // image/jpeg, image/png, image/webp
-            let ext = format === 'image/jpeg' ? '.jpg' : format === 'image/png' ? '.png' : '.webp';
+            const formatStr = document.getElementById('opt-img-format').value; // jpg, jpeg, png
+            const mime = formatStr === 'png' ? 'image/png' : 'image/jpeg';
+            const ext = '.' + formatStr; // .jpg, .jpeg, .png
             
             const img = await loadCanvasImage(currentFile);
             const canvas = document.createElement('canvas');
             canvas.width = img.width; canvas.height = img.height;
             const ctx = canvas.getContext('2d');
             
-            // Jika render ke JPG, otomatis isi background putih
-            if(format === 'image/jpeg') { ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+            // Jika konversi ke jpeg/jpg, paksa latar putih untuk area transparan
+            if(mime === 'image/jpeg') { 
+                ctx.fillStyle = "#FFFFFF"; 
+                ctx.fillRect(0, 0, canvas.width, canvas.height); 
+            }
             ctx.drawImage(img, 0, 0);
             
-            canvas.toBlob(blob => downloadBlob(blob, ext), format, 0.9);
+            canvas.toBlob(blob => downloadBlob(blob, ext), mime, 1.0);
         }
 
-        // FUNGSI: RESIZE GAMBAR
         async function runResizeImg() {
             const w = parseInt(document.getElementById('opt-resize-w').value);
             const h = parseInt(document.getElementById('opt-resize-h').value);
@@ -597,7 +605,6 @@
             canvas.toBlob(blob => downloadBlob(blob, '.png'), 'image/png');
         }
 
-        // FUNGSI: UPSCALE GAMBAR
         async function runUpscaleImg() {
             const scale = parseInt(document.getElementById('opt-upscale-factor').value);
             const img = await loadCanvasImage(currentFile);
@@ -609,7 +616,7 @@
             canvas.toBlob(blob => downloadBlob(blob, '.png', `_${scale}x`), 'image/png');
         }
 
-        // FUNGSI: REMOVE BACKGROUND (Unduh dari Pratinjau Terakhir)
+        // FUNGSI UNDUH BACKGROUND REMOVER
         async function runRemoveBg() {
             if (!noBgCache.blobUrl) throw new Error("Mohon tunggu proses pratinjau AI selesai terlebih dahulu.");
             
@@ -617,7 +624,6 @@
             const ext = isTrans ? '.png' : '.jpg';
             const mime = isTrans ? 'image/png' : 'image/jpeg';
             
-            // Generate ulang resolusi penuh dari cache agar warna background ikut ter-render
             const img = await loadCanvasImage(noBgCache.blobUrl);
             const canvas = document.createElement('canvas');
             canvas.width = img.width; canvas.height = img.height;
@@ -629,10 +635,9 @@
             }
             ctx.drawImage(img, 0, 0);
 
-            canvas.toBlob(blob => downloadBlob(blob, ext, '_NoBG'), mime, 0.9);
+            canvas.toBlob(blob => downloadBlob(blob, ext, '_NoBG'), mime, 1.0);
         }
 
-        // FUNGSI LAINNYA
         async function runWatermark() {
             const text = document.getElementById('opt-wm-text').value;
             const opacity = parseFloat(document.getElementById('opt-wm-opacity').value);
@@ -691,7 +696,7 @@
 
         async function runLock() {
             const pass = document.getElementById('opt-lock-pass').value;
-            const htmlVault = `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Dokumen Terkunci</title><style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#121212;color:#fff;margin:0;padding:20px;}.box{background:#1E1E1E;padding:30px;border-radius:10px;text-align:center;border:1px solid #333;width:100%;max-width:400px;}input{padding:14px;width:100%;box-sizing:border-box;margin:15px 0;border-radius:8px;border:1px solid #555;background:#111;color:#fff;}button{background:#005BAC;color:white;border:none;padding:14px 20px;border-radius:8px;cursor:pointer;font-weight:bold;width:100%;}</style></head><body><div class="box"><h2>🔒 Dokumen Terkunci</h2><p>Masukkan password untuk mendownload PDF.</p><input type="password" id="pass" placeholder="Password"><button onclick="unlock()">Buka & Download</button><p id="msg" style="color:red;"></p></div><script>const truePass="${pass}";const fileData="${btoa(new Uint8Array(await currentFile.arrayBuffer()).reduce((data, byte) => data + String.fromCharCode(byte), ''))}";const fileName="${currentFile.name}";function unlock(){if(document.getElementById('pass').value===truePass){const byteCharacters=atob(fileData);const byteNumbers=new Array(byteCharacters.length);for(let i=0;i<byteCharacters.length;i++)byteNumbers[i]=byteCharacters.charCodeAt(i);const link=document.createElement('a');link.href=URL.createObjectURL(new Blob([new Uint8Array(byteNumbers)],{type:'application/pdf'}));link.download=fileName;link.click();document.getElementById('msg').style.color="#4CAF50";document.getElementById('msg').innerText="Berhasil! Mendownload...";}else{document.getElementById('msg').innerText="Password Salah!";}}<\/script></body></html>`;
+            const htmlVault = `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Dokumen Terkunci</title><style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#121212;color:#fff;margin:0;padding:20px;}.box{background:#1E1E1E;padding:30px;border-radius:10px;text-align:center;border:1px solid #333;width:100%;max-width:400px;}input{padding:14px;width:100%;box-sizing:border-box;margin:15px 0;border-radius:8px;border:1px solid #555;background:#111;color:#fff;}button{background:#005BAC;color:white;border:none;padding:14px 20px;border-radius:8px;cursor:pointer;font-weight:bold;width:100%;}</style></head><body><div class="box"><h2>🔒 Dokumen Terkunci</h2><p>Masukkan password untuk mendownload PDF.</p><input type="password" id="pass" placeholder="Password"><button onclick="unlock()">Buka & Download</button><p id="msg" style="color:red;"></p></div><script>const truePass="${pass}";const fileData="${btoa(new Uint8Array(await currentFile.arrayBuffer()).reduce((data, byte) => data + String.fromCharCode(byte), ''))}";const fileName="${currentFile.name}";function unlock(){if(document.getElementById('pass').value===truePass){const byteCharacters=atob(fileData);const byteNumbers=new Array(byteCharacters.length);for(let i=0;i<byteCharacters.length;i++)byteNumbers[i]=byteCharacters.charCodeAt(i);const link=document.createElement('a');link.style.display='none';link.href=URL.createObjectURL(new Blob([new Uint8Array(byteNumbers)],{type:'application/pdf'}));link.download=fileName;document.body.appendChild(link);link.click();setTimeout(()=>{document.body.removeChild(link);},500);document.getElementById('msg').style.color="#4CAF50";document.getElementById('msg').innerText="Berhasil! Mendownload...";}else{document.getElementById('msg').innerText="Password Salah!";}}<\/script></body></html>`;
             downloadBlob(new Blob([htmlVault], { type: 'text/html' }), '.html');
         }
     </script>
