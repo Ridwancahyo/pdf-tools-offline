@@ -19,9 +19,13 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    
-    <!-- Fast AI Background Removal (MediaPipe) -->
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js" crossorigin="anonymous"></script>
+
+    <!-- High-Precision AI Background Removal (Transformers.js RMBG-1.4) -->
+    <script type="module">
+        import { env, AutoModel, AutoProcessor, RawImage } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.2';
+        env.allowLocalModels = false;
+        window.TransformersAI = { AutoModel, AutoProcessor, RawImage };
+    </script>
 
     <style>
         :root {
@@ -320,6 +324,22 @@
         .btn:disabled { opacity: 0.6; cursor: not-allowed; }
         .btn.secondary { background-color: transparent; border: 1px solid var(--glass-border); color: var(--text-main); box-shadow: none; flex: 1; }
 
+        .manual-download-box {
+            display: none;
+            margin-top: 10px;
+            padding: 12px;
+            background: rgba(76, 175, 80, 0.15);
+            border: 1px solid #4CAF50;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .manual-download-box a {
+            color: var(--bca-blue);
+            font-weight: bold;
+            text-decoration: underline;
+            font-size: 0.95rem;
+        }
+
         @media (max-width: 900px) {
             body { flex-direction: column; }
             .sidebar {
@@ -402,7 +422,7 @@
                 <iframe id="pdf-preview" style="display:none;"></iframe>
                 <img id="img-preview" style="display:none;" alt="Preview">
                 <div id="doc-preview" class="doc-text-preview" style="display:none;"></div>
-                <p id="preview-loading" style="display: none; position: absolute; background: rgba(0,0,0,0.75); color: white; padding: 10px 20px; border-radius: 20px; font-weight: bold; z-index: 15;">Memuat...</p>
+                <p id="preview-loading" style="display: none; position: absolute; background: rgba(0,0,0,0.8); color: white; padding: 12px 20px; border-radius: 20px; font-weight: bold; z-index: 15; text-align: center; max-width: 85%;">Memuat...</p>
             </div>
 
             <div class="settings-panel">
@@ -414,25 +434,30 @@
 
                 <div class="btn-group">
                     <button class="btn secondary" onclick="resetWorkspace()">Batal</button>
-                    <button class="btn" onclick="processFile()" id="process-btn">Save ke File</button>
+                    <button class="btn" onclick="processFile()" id="process-btn">Download / Save</button>
                 </div>
                 <div id="status-msg" style="text-align: center; font-weight: bold; margin-top: 10px; font-size: 0.9rem;"></div>
+                <div id="manual-download-box" class="manual-download-box"></div>
             </div>
         </div>
     </main>
 
-    <!-- Hidden Render Container for Office/Translate to PDF -->
+    <!-- Hidden Render Container -->
     <div id="hidden-render-box" style="position: fixed; left: -9999px; top: 0; width: 794px; background: white; color: black; padding: 40px;"></div>
 
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-        const { PDFDocument, rgb, degrees, StandardFonts } = PDFLib;
+        const { PDFDocument, rgb, degrees } = PDFLib;
 
         let currentTool = 'watermark';
         let currentFile = null;
         let currentFilesList = [];
         let previewBlobUrl = null;
         let previewTimeout = null;
+        
+        // Cache AI Model & Segmented Canvas
+        let rmbgModel = null;
+        let rmbgProcessor = null;
         let segmentedCanvasCache = null;
 
         // --- UI & Navigation ---
@@ -523,6 +548,7 @@
             document.getElementById('preview-section').classList.remove('active');
             fileInput.value = "";
             document.getElementById('status-msg').innerText = "";
+            document.getElementById('manual-download-box').style.display = 'none';
             if (previewBlobUrl) URL.revokeObjectURL(previewBlobUrl);
 
             document.getElementById('preview-container').classList.remove('checkerboard-bg');
@@ -544,6 +570,7 @@
 
             document.getElementById('upload-section').classList.remove('active');
             document.getElementById('preview-section').classList.add('active');
+            document.getElementById('manual-download-box').style.display = 'none';
 
             const iframe = document.getElementById('pdf-preview');
             const imgEl = document.getElementById('img-preview');
@@ -572,11 +599,9 @@
                 iframe.src = previewBlobUrl + "#toolbar=0&view=FitH";
                 iframe.style.display = 'block';
             } else {
-                // Preview untuk file Office (Word, Excel, PPT)
                 docEl.style.display = 'block';
                 docEl.innerHTML = `<p style="color:#666;">Memuat pratinjau dokumen <b>${currentFile.name}</b>...</p>`;
-                const htmlContent = await parseOfficeToHtml(currentFile);
-                docEl.innerHTML = htmlContent;
+                docEl.innerHTML = await parseOfficeToHtml(currentFile);
             }
 
             const baseName = currentFile.name.substring(0, currentFile.name.lastIndexOf('.')) || currentFile.name;
@@ -585,7 +610,7 @@
             buildDynamicOptions();
 
             if (currentTool === 'watermark') updateLivePreview();
-            if (currentTool === 'remove-bg') runFastMediaPipePreview();
+            if (currentTool === 'remove-bg') runHighPrecisionBgRemoval();
             if (currentTool === 'resize-img') extractImageDimensions();
         }
 
@@ -634,8 +659,7 @@
                     <select id="opt-translate-dir">
                         <option value="en|id">Inggris ➔ Indonesia</option>
                         <option value="id|en">Indonesia ➔ Inggris</option>
-                    </select>
-                    <p style="font-size:0.8rem; color:var(--text-muted); margin-top:6px;">*Membutuhkan koneksi internet untuk menerjemahkan teks PDF.</p>`;
+                    </select>`;
             } else if (currentTool === 'compress') {
                 container.innerHTML = `
                     <label class="field-label">Level Kompresi:</label>
@@ -714,23 +738,42 @@
             document.getElementById('color-picker-wrapper').style.display = isTrans ? 'none' : 'block';
         }
 
-        // --- FAST MOBILE/DESKTOP SAVE TO FILE ---
-        function saveToFile(blob, ext, suffix = "") {
+        // --- UNIVERSAL DOWNLOAD & SAVE TO FILE (IOS, ANDROID, DESKTOP) ---
+        async function triggerUniversalDownload(blob, ext, suffix = "") {
             let filename = document.getElementById('rename-input').value.trim() || "StudioTools_File";
             if (suffix) filename += suffix;
             if (!filename.toLowerCase().endsWith(ext.toLowerCase())) filename += ext;
 
-            const reader = new FileReader();
-            reader.onload = function() {
-                const a = document.createElement('a');
-                a.href = reader.result;
-                a.download = filename;
-                a.style.display = 'none';
-                document.body.appendChild(a);
-                a.click();
-                setTimeout(() => document.body.removeChild(a), 1000);
-            };
-            reader.readAsDataURL(blob);
+            const fileObj = new File([blob], filename, { type: blob.type });
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+            // Tampilkan tombol cadangan manual jika browser memblokir pop-up
+            const manualBox = document.getElementById('manual-download-box');
+            const objectUrl = URL.createObjectURL(blob);
+            manualBox.innerHTML = `Jika unduhan tidak muncul otomatis, klik di sini:<br><a href="${objectUrl}" download="${filename}">📥 Simpan ${filename}</a>`;
+            manualBox.style.display = 'block';
+
+            // 1. Gunakan Native Share Sheet di HP (Memunculkan "Save to Files" / "Simpan Gambar")
+            if (isMobile && navigator.canShare && navigator.canShare({ files: [fileObj] })) {
+                try {
+                    await navigator.share({
+                        files: [fileObj],
+                        title: filename
+                    });
+                    return;
+                } catch (err) {
+                    if (err.name === 'AbortError') return; // Pengguna membatalkan dialog share
+                }
+            }
+
+            // 2. Fallback Standar Desktop & Browser Android Chrome
+            const a = document.createElement('a');
+            a.href = objectUrl;
+            a.download = filename;
+            a.target = '_blank';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => document.body.removeChild(a), 1000);
         }
 
         function loadCanvasImage(source) {
@@ -743,41 +786,73 @@
             });
         }
 
-        // --- FAST AI BACKGROUND REMOVAL (MEDIAPIPE) ---
-        async function runFastMediaPipePreview() {
+        // --- STUDIO-GRADE AI BACKGROUND REMOVAL (BRIA RMBG-1.4) ---
+        async function runHighPrecisionBgRemoval() {
             const loading = document.getElementById('preview-loading');
-            loading.innerText = "Memotong background instan...";
+            loading.innerText = "Memuat AI Presisi Tinggi...";
             loading.style.display = 'block';
 
             try {
-                const imgElement = await loadCanvasImage(previewBlobUrl);
-                const selfieSegmentation = new SelfieSegmentation({
-                    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${file}`
-                });
-                selfieSegmentation.setOptions({ modelSelection: 1 });
+                // Tunggu hingga module TransformersAI siap
+                let retries = 0;
+                while (!window.TransformersAI && retries < 30) {
+                    await new Promise(r => setTimeout(r, 200));
+                    retries++;
+                }
+                if (!window.TransformersAI) throw new Error("Modul AI gagal dimuat. Periksa koneksi internet.");
 
-                selfieSegmentation.onResults((results) => {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = results.image.width;
-                    canvas.height = results.image.height;
-                    const ctx = canvas.getContext('2d');
+                const { AutoModel, AutoProcessor, RawImage } = window.TransformersAI;
 
-                    ctx.save();
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    ctx.drawImage(results.segmentationMask, 0, 0, canvas.width, canvas.height);
-                    ctx.globalCompositeOperation = 'source-in';
-                    ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
-                    ctx.restore();
+                if (!rmbgModel || !rmbgProcessor) {
+                    loading.innerText = "Mengunduh Model AI (Hanya 1x)...";
+                    rmbgModel = await AutoModel.from_pretrained('briaai/RMBG-1.4', {
+                        config: { model_type: 'custom' }
+                    });
+                    rmbgProcessor = await AutoProcessor.from_pretrained('briaai/RMBG-1.4', {
+                        config: {
+                            do_normalize: true,
+                            do_pad: false,
+                            do_rescale: true,
+                            do_resize: true,
+                            image_mean: [0.5, 0.5, 0.5],
+                            feature_extractor_type: "ImageFeatureExtractor",
+                            image_std: [1, 1, 1],
+                            resample: 2,
+                            rescale_factor: 0.00392156862745098,
+                            size: { width: 1024, height: 1024 },
+                        }
+                    });
+                }
 
-                    segmentedCanvasCache = canvas;
-                    renderSegmentedCanvas();
-                    loading.style.display = 'none';
-                });
+                loading.innerText = "Memotong Background dengan Presisi...";
+                const image = await RawImage.fromURL(previewBlobUrl);
+                const { pixel_values } = await rmbgProcessor(image);
+                const { output } = await rmbgModel({ input: pixel_values });
 
-                await selfieSegmentation.send({ image: imgElement });
+                // Rekonstruksi Alpha Mask ke Resolusi Asli Gambar
+                const mask = await RawImage.fromTensor(output[0].mul(255).to('uint8')).resize(image.width, image.height);
+
+                const canvas = document.createElement('canvas');
+                canvas.width = image.width;
+                canvas.height = image.height;
+                const ctx = canvas.getContext('2d');
+
+                const origImg = await loadCanvasImage(previewBlobUrl);
+                ctx.drawImage(origImg, 0, 0);
+
+                const pixelData = ctx.getImageData(0, 0, image.width, image.height);
+                for (let i = 0; i < mask.data.length; ++i) {
+                    pixelData.data[4 * i + 3] = mask.data[i]; // Terapkan alpha channel halus
+                }
+                ctx.putImageData(pixelData, 0, 0);
+
+                segmentedCanvasCache = canvas;
+                renderSegmentedCanvas();
+                loading.style.display = 'none';
             } catch (err) {
-                loading.innerText = "Gagal memuat AI. Periksa koneksi internet.";
-                setTimeout(() => loading.style.display = 'none', 2500);
+                console.error(err);
+                loading.innerText = "⚠ " + err.message;
+                setTimeout(() => loading.style.display = 'none', 3500);
             }
         }
 
@@ -865,21 +940,19 @@
                 }
                 return slidesHtml || '<p>Tidak ada teks yang dapat diekstrak dari presentasi ini.</p>';
             }
-            return '<p>Format dokumen tidak didukung untuk pratinjau.</p>';
+            return '<p>Format dokumen tidak didukung.</p>';
         }
 
         // --- EKSEKUSI UTAMA ---
         async function processFile() {
             const status = document.getElementById('status-msg');
             const btn = document.getElementById('process-btn');
-            status.innerText = "Memproses dokumen...";
+            status.innerText = "Memproses...";
             status.style.color = "var(--text-main)";
             btn.disabled = true;
             btn.innerText = "Tunggu...";
 
             try {
-                await new Promise(r => setTimeout(r, 100));
-
                 switch (currentTool) {
                     case 'watermark': await runWatermark(); break;
                     case 'office-pdf': await runOfficePdf(); break;
@@ -897,7 +970,7 @@
                     case 'heic': await runHeic(); break;
                 }
 
-                status.innerText = "✓ Berhasil disimpan ke perangkat!";
+                status.innerText = "✓ File siap disimpan!";
                 status.style.color = "#4CAF50";
             } catch (e) {
                 console.error(e);
@@ -905,7 +978,7 @@
                 status.style.color = "#D32F2F";
             }
 
-            btn.innerText = "Save ke File";
+            btn.innerText = "Download / Save";
             btn.disabled = false;
         }
 
@@ -913,7 +986,6 @@
         async function runOfficePdf() {
             const ext = currentFile.name.split('.').pop().toLowerCase();
             if (ext === 'pdf') {
-                // PDF ke Word / Excel / PPT
                 const target = document.getElementById('opt-office-target').value;
                 const pdf = await pdfjsLib.getDocument({ data: await currentFile.arrayBuffer() }).promise;
                 let fullText = [];
@@ -927,32 +999,30 @@
 
                 if (target === 'doc') {
                     const htmlDoc = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'></head><body>${fullText.map(p => `<h3>Halaman ${p.page}</h3><p>${p.text}</p><hr>`).join('')}</body></html>`;
-                    saveToFile(new Blob(['\ufeff', htmlDoc], { type: 'application/msword' }), '.doc');
+                    await triggerUniversalDownload(new Blob(['\ufeff', htmlDoc], { type: 'application/msword' }), '.doc');
                 } else if (target === 'xls') {
                     const wb = XLSX.utils.book_new();
                     const rows = fullText.map(p => [`Halaman ${p.page}`, p.text]);
                     const ws = XLSX.utils.aoa_to_sheet([['Halaman', 'Isi Teks'], ...rows]);
                     XLSX.utils.book_append_sheet(wb, ws, "Hasil_PDF");
                     const wbout = XLSX.write(wb, { bookType: 'xls', type: 'array' });
-                    saveToFile(new Blob([wbout], { type: 'application/vnd.ms-excel' }), '.xls');
+                    await triggerUniversalDownload(new Blob([wbout], { type: 'application/vnd.ms-excel' }), '.xls');
                 } else if (target === 'ppt') {
                     const htmlPpt = `<html><head><meta charset='utf-8'></head><body>${fullText.map(p => `<div style="page-break-after:always; padding:20px; border:1px solid #000;"><h2>Slide ${p.page}</h2><p>${p.text}</p></div>`).join('')}</body></html>`;
-                    saveToFile(new Blob(['\ufeff', htmlPpt], { type: 'application/vnd.ms-powerpoint' }), '.ppt');
+                    await triggerUniversalDownload(new Blob(['\ufeff', htmlPpt], { type: 'application/vnd.ms-powerpoint' }), '.ppt');
                 }
             } else {
-                // Word / Excel / PPT ke PDF
                 const renderBox = document.getElementById('hidden-render-box');
                 renderBox.innerHTML = await parseOfficeToHtml(currentFile);
                 const opt = {
                     margin: 10,
-                    filename: 'converted.pdf',
                     image: { type: 'jpeg', quality: 0.98 },
                     html2canvas: { scale: 2 },
                     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
                 };
                 const pdfBlob = await html2pdf().set(opt).from(renderBox).outputPdf('blob');
                 renderBox.innerHTML = '';
-                saveToFile(pdfBlob, '.pdf');
+                await triggerUniversalDownload(pdfBlob, '.pdf');
             }
         }
 
@@ -969,7 +1039,6 @@
                 const rawText = content.items.map(item => item.str).join(' ').trim();
 
                 if (rawText) {
-                    // Potong per 450 karakter agar aman melewati limit API publik
                     const chunks = rawText.match(/.{1,450}(\s|$)/g) || [rawText];
                     let pageTranslated = '';
 
@@ -993,11 +1062,11 @@
                 jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
             }).from(renderBox).outputPdf('blob');
             renderBox.innerHTML = '';
-            saveToFile(pdfBlob, '.pdf', '_Translated');
+            await triggerUniversalDownload(pdfBlob, '.pdf', '_Translated');
         }
 
         async function runRemoveBgSave() {
-            if (!segmentedCanvasCache) throw new Error("Gambar belum selesai diproses AI.");
+            if (!segmentedCanvasCache) throw new Error("Tunggu proses AI selesai memotong gambar.");
             const isTrans = document.getElementById('opt-bg-transparent').checked;
             const color = document.getElementById('opt-bg-color').value;
 
@@ -1012,9 +1081,8 @@
             }
             ctx.drawImage(segmentedCanvasCache, 0, 0);
 
-            finalCanvas.toBlob(blob => {
-                saveToFile(blob, isTrans ? '.png' : '.jpg', '_NoBG');
-            }, isTrans ? 'image/png' : 'image/jpeg', 0.95);
+            const blob = await new Promise(res => finalCanvas.toBlob(res, isTrans ? 'image/png' : 'image/jpeg', 0.95));
+            await triggerUniversalDownload(blob, isTrans ? '.png' : '.jpg', '_NoBG');
         }
 
         async function runImgConverter() {
@@ -1031,7 +1099,8 @@
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
             }
             ctx.drawImage(img, 0, 0);
-            canvas.toBlob(blob => saveToFile(blob, '.' + formatStr), mime, 0.95);
+            const blob = await new Promise(res => canvas.toBlob(res, mime, 0.95));
+            await triggerUniversalDownload(blob, '.' + formatStr);
         }
 
         async function runResizeImg() {
@@ -1047,7 +1116,8 @@
             ctx.imageSmoothingEnabled = true;
             ctx.imageSmoothingQuality = "high";
             ctx.drawImage(img, 0, 0, w, h);
-            canvas.toBlob(blob => saveToFile(blob, '.png', `_${w}x${h}`), 'image/png');
+            const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+            await triggerUniversalDownload(blob, '.png', `_${w}x${h}`);
         }
 
         async function runUpscaleImg() {
@@ -1060,7 +1130,8 @@
             ctx.imageSmoothingEnabled = true;
             ctx.imageSmoothingQuality = "high";
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            canvas.toBlob(blob => saveToFile(blob, '.png', `_${scale}x_HD`), 'image/png');
+            const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+            await triggerUniversalDownload(blob, '.png', `_${scale}x_HD`);
         }
 
         async function runPdfImgCombo() {
@@ -1075,8 +1146,9 @@
                     canvas.width = viewport.width;
                     canvas.height = viewport.height;
                     await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
-                    await new Promise(res => canvas.toBlob(b => { saveToFile(b, '.jpg', `_Hal_${i}`); res(); }, 'image/jpeg', 0.9));
-                    await new Promise(r => setTimeout(r, 350));
+                    const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.9));
+                    await triggerUniversalDownload(blob, '.jpg', `_Hal_${i}`);
+                    await new Promise(r => setTimeout(r, 400));
                 }
             } else {
                 const pdfDoc = await PDFDocument.create();
@@ -1091,7 +1163,7 @@
                     const page = pdfDoc.addPage([image.width, image.height]);
                     page.drawImage(image, { x: 0, y: 0, width: image.width, height: image.height });
                 }
-                saveToFile(new Blob([await pdfDoc.save()], { type: 'application/pdf' }), '.pdf');
+                await triggerUniversalDownload(new Blob([await pdfDoc.save()], { type: 'application/pdf' }), '.pdf');
             }
         }
 
@@ -1107,14 +1179,14 @@
                     }
                 }
             });
-            saveToFile(new Blob([await pdfDoc.save()], { type: 'application/pdf' }), '.pdf');
+            await triggerUniversalDownload(new Blob([await pdfDoc.save()], { type: 'application/pdf' }), '.pdf');
         }
 
         async function runCompress() {
             const level = document.getElementById('opt-compress-level').value;
             if (level === 'normal') {
                 const pdfDoc = await PDFDocument.load(await currentFile.arrayBuffer());
-                saveToFile(new Blob([await pdfDoc.save({ useObjectStreams: false })], { type: 'application/pdf' }), '.pdf', '_Compressed');
+                await triggerUniversalDownload(new Blob([await pdfDoc.save({ useObjectStreams: false })], { type: 'application/pdf' }), '.pdf', '_Compressed');
             } else {
                 const pdf = await pdfjsLib.getDocument({ data: await currentFile.arrayBuffer() }).promise;
                 const newPdf = await PDFDocument.create();
@@ -1130,7 +1202,7 @@
                     const newPage = newPdf.addPage([image.width, image.height]);
                     newPage.drawImage(image, { x: 0, y: 0, width: image.width, height: image.height });
                 }
-                saveToFile(new Blob([await newPdf.save()], { type: 'application/pdf' }), '.pdf', '_HighCompressed');
+                await triggerUniversalDownload(new Blob([await newPdf.save()], { type: 'application/pdf' }), '.pdf', '_HighCompressed');
             }
         }
 
@@ -1151,7 +1223,7 @@
             });
             const newPdf = await PDFDocument.create();
             (await newPdf.copyPages(pdfDoc, Array.from(keep).sort((a, b) => a - b))).forEach(p => newPdf.addPage(p));
-            saveToFile(new Blob([await newPdf.save()], { type: 'application/pdf' }), '.pdf');
+            await triggerUniversalDownload(new Blob([await newPdf.save()], { type: 'application/pdf' }), '.pdf');
         }
 
         async function runMerge() {
@@ -1161,35 +1233,35 @@
                 const pdf = await PDFDocument.load(await file.arrayBuffer());
                 (await mergedPdf.copyPages(pdf, pdf.getPageIndices())).forEach(p => mergedPdf.addPage(p));
             }
-            saveToFile(new Blob([await mergedPdf.save()], { type: 'application/pdf' }), '.pdf', '_Merged');
+            await triggerUniversalDownload(new Blob([await mergedPdf.save()], { type: 'application/pdf' }), '.pdf', '_Merged');
         }
 
         async function runUnlock() {
             const pass = document.getElementById('opt-unlock-pass').value;
             if (!pass) throw new Error("Masukkan password!");
             const pdfDoc = await PDFDocument.load(await currentFile.arrayBuffer(), { password: pass });
-            saveToFile(new Blob([await pdfDoc.save()], { type: 'application/pdf' }), '.pdf', '_Unlocked');
+            await triggerUniversalDownload(new Blob([await pdfDoc.save()], { type: 'application/pdf' }), '.pdf', '_Unlocked');
         }
 
         async function runLock() {
             const pass = document.getElementById('opt-lock-pass').value;
             if (!pass) throw new Error("Masukkan password baru!");
             const base64File = btoa(new Uint8Array(await currentFile.arrayBuffer()).reduce((d, b) => d + String.fromCharCode(b), ''));
-            const htmlVault = `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Dokumen Terkunci</title><style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#121212;color:#fff;margin:0;padding:20px;}.box{background:#1E1E1E;padding:30px;border-radius:12px;text-align:center;border:1px solid #333;width:100%;max-width:400px;}input{padding:14px;width:100%;box-sizing:border-box;margin:15px 0;border-radius:8px;border:1px solid #555;background:#111;color:#fff;}button{background:#005BAC;color:white;border:none;padding:14px;border-radius:8px;cursor:pointer;font-weight:bold;width:100%;}</style></head><body><div class="box"><h2>🔒 Dokumen Terkunci</h2><p>Masukkan password untuk menyimpan PDF.</p><input type="password" id="pass" placeholder="Password"><button onclick="unlock()">Buka & Save File</button><p id="msg" style="color:#ff5252;"></p></div><script>const p="${pass}",d="${base64File}",n="${currentFile.name}";function unlock(){if(document.getElementById('pass').value===p){const c=atob(d),a=new Uint8Array(c.length);for(let i=0;i<c.length;i++)a[i]=c.charCodeAt(i);const r=new FileReader();r.onload=function(){const l=document.createElement('a');l.href=r.result;l.download=n;document.body.appendChild(l);l.click();setTimeout(()=>document.body.removeChild(l),500);};r.readAsDataURL(new Blob([a],{type:'application/pdf'}));document.getElementById('msg').style.color="#4CAF50";document.getElementById('msg').innerText="Berhasil!";}else{document.getElementById('msg').innerText="Password Salah!";}}<\/script></body></html>`;
-            saveToFile(new Blob([htmlVault], { type: 'text/html' }), '.html', '_Protected');
+            const htmlVault = `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Dokumen Terkunci</title><style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#121212;color:#fff;margin:0;padding:20px;}.box{background:#1E1E1E;padding:30px;border-radius:12px;text-align:center;border:1px solid #333;width:100%;max-width:400px;}input{padding:14px;width:100%;box-sizing:border-box;margin:15px 0;border-radius:8px;border:1px solid #555;background:#111;color:#fff;}button{background:#005BAC;color:white;border:none;padding:14px;border-radius:8px;cursor:pointer;font-weight:bold;width:100%;}</style></head><body><div class="box"><h2>🔒 Dokumen Terkunci</h2><p>Masukkan password untuk menyimpan PDF.</p><input type="password" id="pass" placeholder="Password"><button onclick="unlock()">Buka & Save File</button><p id="msg" style="color:#ff5252;"></p></div><script>const p="${pass}",d="${base64File}",n="${currentFile.name}";async function unlock(){if(document.getElementById('pass').value===p){const c=atob(d),a=new Uint8Array(c.length);for(let i=0;i<c.length;i++)a[i]=c.charCodeAt(i);const b=new Blob([a],{type:'application/pdf'});const f=new File([b],n,{type:'application/pdf'});if(navigator.canShare&&navigator.canShare({files:[f]})){try{await navigator.share({files:[f],title:n});return;}catch(e){}}const l=document.createElement('a');l.href=URL.createObjectURL(b);l.download=n;document.body.appendChild(l);l.click();setTimeout(()=>document.body.removeChild(l),1000);document.getElementById('msg').style.color="#4CAF50";document.getElementById('msg').innerText="Berhasil!";}else{document.getElementById('msg').innerText="Password Salah!";}}<\/script></body></html>`;
+            await triggerUniversalDownload(new Blob([htmlVault], { type: 'text/html' }), '.html', '_Protected');
         }
 
         async function runHeic() {
             const format = document.getElementById('opt-heic-format').value;
             const res = await heic2any({ blob: new Blob([await currentFile.arrayBuffer()]), toType: format === 'png' ? "image/png" : "image/jpeg", quality: 0.85 });
             if (format === 'jpg' || format === 'png') {
-                saveToFile(res, '.' + format);
+                await triggerUniversalDownload(res, '.' + format);
             } else {
                 const pdfDoc = await PDFDocument.create();
                 const image = await pdfDoc.embedJpg(await res.arrayBuffer());
                 const page = pdfDoc.addPage([image.width, image.height]);
                 page.drawImage(image, { x: 0, y: 0, width: image.width, height: image.height });
-                saveToFile(new Blob([await pdfDoc.save()], { type: 'application/pdf' }), '.pdf');
+                await triggerUniversalDownload(new Blob([await pdfDoc.save()], { type: 'application/pdf' }), '.pdf');
             }
         }
     </script>
