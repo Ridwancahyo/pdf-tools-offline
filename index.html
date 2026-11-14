@@ -3,93 +3,240 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Studio Tools - PDF & Image AI</title>
+    <title>Studio Tools - PDF, Office & Image AI</title>
     
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#005BAC">
     <link rel="apple-touch-icon" href="icon-192.png">
     
-    <!-- Library Eksternal Lengkap -->
+    <!-- Core PDF & Image Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/heic2any.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/heic2any.min.js"></script>
     
-    <!-- Library AI Background Removal (Internet Required) -->
-    <script src="https://unpkg.com/@imgly/background-removal@1.4.3/dist/browser/bundle.umd.min.js"></script>
+    <!-- Office Parsing & Generation Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
+    <!-- Fast AI Background Removal (MediaPipe) -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js" crossorigin="anonymous"></script>
+
     <style>
         :root {
             --bg-gradient: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%);
-            --glass-bg: rgba(255, 255, 255, 0.7);
-            --glass-border: rgba(255, 255, 255, 0.5);
+            --glass-bg: rgba(255, 255, 255, 0.78);
+            --glass-border: rgba(255, 255, 255, 0.6);
             --text-main: #1A1A1D;
             --text-muted: #555555;
             --bca-blue: #005BAC;
             --bca-blue-hover: #004A8D;
-            --shadow: 0 10px 30px rgba(0, 91, 172, 0.1);
-            --input-bg: rgba(255, 255, 255, 0.9);
+            --shadow: 0 10px 30px rgba(0, 91, 172, 0.12);
+            --input-bg: rgba(255, 255, 255, 0.95);
         }
 
         [data-theme="dark"] {
             --bg-gradient: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
-            --glass-bg: rgba(20, 20, 25, 0.65);
-            --glass-border: rgba(255, 255, 255, 0.1);
+            --glass-bg: rgba(20, 22, 28, 0.75);
+            --glass-border: rgba(255, 255, 255, 0.12);
             --text-main: #FFFFFF;
             --text-muted: #AAAAAA;
             --shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-            --input-bg: rgba(0, 0, 0, 0.5);
+            --input-bg: rgba(15, 15, 20, 0.7);
         }
 
-        * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; transition: background 0.3s, color 0.3s, border-color 0.3s; }
-
-        body { 
-            margin: 0; display: flex; height: 100vh; background: var(--bg-gradient); 
-            color: var(--text-main); overflow: hidden;
-            padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            transition: background 0.25s, color 0.25s, border-color 0.25s;
         }
 
-        .glass-panel { background: var(--glass-bg); backdrop-filter: blur(16px); border: 1px solid var(--glass-border); box-shadow: var(--shadow); border-radius: 20px; }
+        body {
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            background: var(--bg-gradient);
+            color: var(--text-main);
+            overflow: hidden;
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+        }
 
-        /* SIDEBAR */
-        .sidebar { width: 280px; margin: 1rem; display: flex; flex-direction: column; padding: 1.5rem 0; overflow-y: auto; z-index: 1000; }
-        .logo { font-size: 1.5rem; font-weight: 800; padding: 0 1.5rem 1rem; border-bottom: 1px solid var(--glass-border); margin-bottom: 0.5rem; letter-spacing: 1px; display: flex; justify-content: space-between; align-items: center; }
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--shadow);
+            border-radius: 20px;
+        }
+
+        /* Sidebar Navigation */
+        .sidebar {
+            width: 280px;
+            margin: 1rem;
+            display: flex;
+            flex-direction: column;
+            padding: 1.5rem 0;
+            overflow-y: auto;
+            z-index: 1000;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 800;
+            padding: 0 1.5rem 1rem;
+            border-bottom: 1px solid var(--glass-border);
+            margin-bottom: 0.5rem;
+            letter-spacing: 1px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
         .logo span { color: var(--bca-blue); }
         .close-sidebar { display: none; background: none; border: none; font-size: 1.5rem; color: var(--text-main); cursor: pointer; }
-        
-        .menu-label { font-size: 0.75rem; color: var(--text-muted); padding: 0 1.5rem; margin-top: 1rem; margin-bottom: 0.2rem; text-transform: uppercase; font-weight: bold; }
-        .menu-item { padding: 0.8rem 1.5rem; cursor: pointer; display: flex; align-items: center; gap: 12px; text-decoration: none; font-size: 0.9rem; margin: 0.2rem 1rem; border-radius: 12px; min-height: 44px; }
-        .menu-item:hover, .menu-item.active { background-color: var(--bca-blue); color: white; box-shadow: 0 4px 15px rgba(0, 91, 172, 0.3); }
-        
-        .footer-credits { margin-top: auto; text-align: center; padding: 1rem; font-size: 0.85rem; color: var(--text-muted); font-weight: 600; border-top: 1px solid var(--glass-border); }
-        .sidebar-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 999; backdrop-filter: blur(4px); }
 
-        /* MAIN CONTENT */
-        .main-content { flex: 1; margin: 1rem 1rem 1rem 0; padding: 2rem; display: flex; flex-direction: column; overflow-y: auto; position: relative; }
-        .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; gap: 10px; flex-wrap: wrap; }
+        .menu-label {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            padding: 0 1.5rem;
+            margin-top: 1rem;
+            margin-bottom: 0.3rem;
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        .menu-item {
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.92rem;
+            margin: 0.15rem 1rem;
+            border-radius: 12px;
+            min-height: 44px;
+            font-weight: 500;
+        }
+
+        .menu-item:hover, .menu-item.active {
+            background-color: var(--bca-blue);
+            color: white;
+            box-shadow: 0 4px 15px rgba(0, 91, 172, 0.3);
+        }
+
+        .footer-credits {
+            margin-top: auto;
+            text-align: center;
+            padding: 1rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-weight: 600;
+            border-top: 1px solid var(--glass-border);
+        }
+
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 999;
+            backdrop-filter: blur(4px);
+        }
+
+        /* Main Workspace */
+        .main-content {
+            flex: 1;
+            margin: 1rem 1rem 1rem 0;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            gap: 10px;
+        }
+
         .header-left { display: flex; align-items: center; gap: 15px; }
         .hamburger { display: none; background: none; border: none; font-size: 1.8rem; color: var(--text-main); cursor: pointer; padding: 0; }
-        .theme-toggle { background: var(--input-bg); border: 1px solid var(--glass-border); color: var(--text-main); padding: 10px 16px; border-radius: 20px; cursor: pointer; font-weight: 600; min-height: 44px; }
+        
+        .theme-toggle {
+            background: var(--input-bg);
+            border: 1px solid var(--glass-border);
+            color: var(--text-main);
+            padding: 10px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 600;
+            min-height: 44px;
+        }
 
-        /* WORKSPACE & DROPZONE */
-        .workspace { display: none; flex-direction: column; align-items: center; justify-content: center; height: 100%; flex: 1; }
+        /* Upload Dropzone */
+        .workspace { display: none; flex-direction: column; align-items: center; justify-content: center; flex: 1; }
         .workspace.active { display: flex; }
-        .drop-zone { width: 100%; max-width: 600px; padding: 3rem 1.5rem; text-align: center; border: 2px dashed var(--bca-blue); border-radius: 20px; background: rgba(0, 91, 172, 0.05); cursor: pointer; transition: 0.3s; }
-        .drop-zone:hover, .drop-zone.dragover { background: rgba(0, 91, 172, 0.15); transform: translateY(-5px); }
 
-        /* PREVIEW PANEL ADJUSTABLE */
-        .preview-panel { display: none; width: 100%; gap: 1.5rem; animation: fadeIn 0.4s ease; height: 100%; flex-direction: row; }
+        .drop-zone {
+            width: 100%;
+            max-width: 600px;
+            padding: 3.5rem 1.5rem;
+            text-align: center;
+            border: 2px dashed var(--bca-blue);
+            border-radius: 20px;
+            background: rgba(0, 91, 172, 0.05);
+            cursor: pointer;
+            transition: 0.25s;
+        }
+        .drop-zone:hover, .drop-zone.dragover {
+            background: rgba(0, 91, 172, 0.14);
+            transform: translateY(-4px);
+        }
+
+        /* Preview & Settings Panel */
+        .preview-panel { display: none; width: 100%; gap: 1.5rem; animation: fadeIn 0.3s ease; flex: 1; min-height: 0; }
         .preview-panel.active { display: flex; }
-        
-        .preview-frame { 
-            flex: 1.2; border-radius: 12px; border: 1px solid var(--glass-border); 
-            background: #e9ecef; display: flex; align-items: center; justify-content: center; 
-            position: relative; min-height: 350px; overflow: hidden; box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
+
+        .preview-frame {
+            flex: 1.3;
+            border-radius: 14px;
+            border: 1px solid var(--glass-border);
+            background: #e9ecef;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            min-height: 320px;
+            overflow: hidden;
         }
-        
-        .preview-frame iframe, .preview-frame img { 
-            width: 100%; height: 100%; border: none; position: absolute; 
-            top: 0; left: 0; right: 0; bottom: 0; background: transparent; object-fit: contain;
+
+        .preview-frame iframe, .preview-frame img {
+            width: 100%;
+            height: 100%;
+            border: none;
+            position: absolute;
+            inset: 0;
+            object-fit: contain;
         }
+
+        .doc-text-preview {
+            width: 100%;
+            height: 100%;
+            padding: 1.5rem;
+            background: #ffffff;
+            color: #111111;
+            overflow-y: auto;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            text-align: left;
+        }
+
         .checkerboard-bg {
             background-image: 
                 linear-gradient(45deg, #ccc 25%, transparent 25%), 
@@ -101,42 +248,99 @@
         }
 
         .fullscreen-btn {
-            position: absolute; top: 10px; right: 10px; background: rgba(0, 91, 172, 0.8);
-            color: white; border: none; border-radius: 8px; padding: 8px 12px;
-            cursor: pointer; z-index: 20; backdrop-filter: blur(4px); font-weight: bold;
-            font-size: 0.9rem; box-shadow: 0 4px 6px rgba(0,0,0,0.2); transition: 0.2s;
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 91, 172, 0.85);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 12px;
+            cursor: pointer;
+            z-index: 20;
+            font-weight: bold;
+            font-size: 0.85rem;
         }
-        .fullscreen-btn:hover { background: var(--bca-blue); transform: scale(1.05); }
 
-        .settings-panel { flex: 1; display: flex; flex-direction: column; gap: 0.8rem; overflow-y: auto; padding-right: 5px; }
-        input[type="text"], input[type="password"], input[type="number"], select { width: 100%; padding: 12px; background: var(--input-bg); border: 1px solid var(--glass-border); color: var(--text-main); border-radius: 10px; font-size: 1rem; min-height: 48px; }
-        input[type="color"] { width: 100%; height: 48px; border: 1px solid var(--glass-border); border-radius: 10px; cursor: pointer; background: var(--input-bg); padding: 5px; }
-        input[type="range"] { width: 100%; margin: 15px 0; }
-        
-        .range-container { display: flex; align-items: center; gap: 15px; }
+        .settings-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 0.85rem;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        label.field-label { font-weight: 600; font-size: 0.9rem; display: block; margin-top: 0.4rem; }
+
+        input[type="text"], input[type="password"], input[type="number"], select {
+            width: 100%;
+            padding: 12px;
+            background: var(--input-bg);
+            border: 1px solid var(--glass-border);
+            color: var(--text-main);
+            border-radius: 10px;
+            font-size: 0.95rem;
+            min-height: 46px;
+        }
+
+        input[type="color"] {
+            width: 100%;
+            height: 46px;
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            cursor: pointer;
+            background: var(--input-bg);
+            padding: 4px;
+        }
+
+        .range-container { display: flex; align-items: center; gap: 12px; }
+        .range-container input { flex: 1; }
         .range-container span { font-weight: bold; min-width: 45px; text-align: right; }
-        .flex-row { display: flex; gap: 10px; }
-        .checkbox-container { display: flex; align-items: center; gap: 10px; font-weight: bold; margin-top: 10px; cursor: pointer; }
-        .checkbox-container input { width: 20px; height: 20px; cursor: pointer; }
 
-        .btn-group { margin-top: auto; display: flex; gap: 10px; flex-wrap: wrap; }
-        .btn { background-color: var(--bca-blue); color: white; border: none; padding: 14px 20px; border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 1rem; box-shadow: 0 4px 15px rgba(0, 91, 172, 0.3); flex: 2; min-height: 48px; min-width: 120px; text-align: center; }
-        .btn:hover { background-color: var(--bca-blue-hover); transform: translateY(-2px); }
+        .flex-row { display: flex; gap: 10px; }
+        .checkbox-container { display: flex; align-items: center; gap: 10px; font-weight: 600; margin-top: 8px; cursor: pointer; }
+        .checkbox-container input { width: 18px; height: 18px; cursor: pointer; }
+
+        .btn-group { margin-top: auto; display: flex; gap: 10px; padding-top: 1rem; }
+        .btn {
+            background-color: var(--bca-blue);
+            color: white;
+            border: none;
+            padding: 14px 20px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.95rem;
+            box-shadow: 0 4px 15px rgba(0, 91, 172, 0.3);
+            flex: 2;
+            min-height: 48px;
+        }
+        .btn:hover { background-color: var(--bca-blue-hover); }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
         .btn.secondary { background-color: transparent; border: 1px solid var(--glass-border); color: var(--text-main); box-shadow: none; flex: 1; }
 
         @media (max-width: 900px) {
-            body { flex-direction: column; overflow: hidden; }
-            .sidebar { position: fixed; top: 0; left: -300px; height: 100vh; margin: 0; border-radius: 0; transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1); width: 280px; }
+            body { flex-direction: column; }
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: -300px;
+                height: 100vh;
+                margin: 0;
+                border-radius: 0;
+                transition: left 0.3s ease;
+                width: 280px;
+            }
             .sidebar.show { left: 0; box-shadow: 5px 0 30px rgba(0,0,0,0.5); }
             .close-sidebar, .hamburger { display: block; }
-            .main-content { margin: 0; border-radius: 0; padding: 1.5rem 1rem; width: 100%; height: 100vh; }
-            .preview-panel { flex-direction: column; overflow-y: auto; gap: 1.2rem; display: none; }
-            .preview-panel.active { display: flex; }
-            .preview-frame { flex: none; height: 45vh; min-height: 300px; width: 100%; }
-            .settings-panel { flex: none; overflow-y: visible; padding-bottom: 3rem; }
+            .main-content { margin: 0; border-radius: 0; padding: 1.2rem 1rem; width: 100%; height: 100vh; }
+            .preview-panel { flex-direction: column; overflow-y: auto; }
+            .preview-frame { flex: none; height: 42vh; min-height: 260px; }
+            .settings-panel { flex: none; overflow-y: visible; padding-bottom: 2rem; }
         }
 
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
@@ -150,76 +354,88 @@
             <button class="close-sidebar" onclick="toggleSidebar()">✖</button>
         </div>
         
-        <div class="menu-label">Pengelola PDF</div>
+        <div class="menu-label">Dokumen & PDF</div>
         <div class="menu-item active" onclick="nav('watermark')">🛡️ Watermark PDF</div>
+        <div class="menu-item" onclick="nav('office-pdf')">💼 Office ↔ PDF</div>
+        <div class="menu-item" onclick="nav('translate-pdf')">🌐 Translate PDF (ID/EN)</div>
         <div class="menu-item" onclick="nav('lock')">🔒 Protect PDF</div>
         <div class="menu-item" onclick="nav('unlock')">🔓 Unlock PDF</div>
         <div class="menu-item" onclick="nav('removepages')">✂️ Hapus Halaman</div>
         <div class="menu-item" onclick="nav('merge')">📑 Gabung PDF</div>
         <div class="menu-item" onclick="nav('compress')">🗜️ Compress PDF</div>
         
-        <div class="menu-label">Konversi & Gambar AI</div>
-        <div class="menu-item" onclick="nav('pdfimg-combo')">🔄 Konversi Dokumen</div>
+        <div class="menu-label">Gambar & AI</div>
+        <div class="menu-item" onclick="nav('pdfimg-combo')">🔄 PDF ↔ Gambar</div>
         <div class="menu-item" onclick="nav('img-converter')">🔀 Konversi Gambar</div>
         <div class="menu-item" onclick="nav('resize-img')">📏 Resize Gambar</div>
         <div class="menu-item" onclick="nav('upscale-img')">✨ Upscale Gambar</div>
-        <div class="menu-item" onclick="nav('remove-bg')">🪄 Hapus Background</div>
+        <div class="menu-item" onclick="nav('remove-bg')">🪄 Hapus Background AI</div>
         <div class="menu-item" onclick="nav('heic')">📱 HEIC Converter</div>
 
         <div class="footer-credits">Created by Ridwan</div>
     </aside>
 
-    <!-- KONTEN UTAMA -->
+    <!-- MAIN CONTENT -->
     <main class="main-content glass-panel">
         <div class="top-bar">
             <div class="header-left">
                 <button class="hamburger" onclick="toggleSidebar()">☰</button>
-                <h2 id="page-title" style="margin:0; font-size: 1.3rem;">Watermark PDF</h2>
+                <h2 id="page-title" style="margin:0; font-size: 1.25rem;">Watermark PDF</h2>
             </div>
             <button class="theme-toggle" onclick="toggleTheme()">🌓 Tema</button>
         </div>
 
+        <!-- UPLOAD AREA -->
         <div id="upload-section" class="workspace active">
             <div class="drop-zone" id="drop-zone">
-                <div style="font-size: 3.5rem; margin-bottom: 0.5rem;">☁️</div>
-                <h3>Sentuh atau Tarik Berkas</h3>
-                <p id="upload-desc" style="color: var(--text-muted); font-size: 0.9rem;">Mendukung PDF & Gambar</p>
+                <div style="font-size: 3.2rem; margin-bottom: 0.5rem;">☁️</div>
+                <h3 style="margin: 0.5rem 0;">Sentuh atau Tarik Berkas ke Sini</h3>
+                <p id="upload-desc" style="color: var(--text-muted); font-size: 0.9rem; margin: 0;">Mendukung file dokumen PDF</p>
             </div>
             <input type="file" id="file-input" style="display: none;">
         </div>
 
+        <!-- PREVIEW & SETTINGS AREA -->
         <div id="preview-section" class="preview-panel">
             <div class="preview-frame" id="preview-container">
                 <button class="fullscreen-btn" onclick="openFullscreen()" title="Layar Penuh">⛶ Perbesar</button>
                 <iframe id="pdf-preview" style="display:none;"></iframe>
-                <img id="img-preview" style="display:none;" />
-                <p id="preview-loading" style="display: none; position: absolute; background: rgba(0,0,0,0.7); color: white; padding: 10px 20px; border-radius: 20px; font-weight: bold; z-index: 10;">Memuat...</p>
+                <img id="img-preview" style="display:none;" alt="Preview">
+                <div id="doc-preview" class="doc-text-preview" style="display:none;"></div>
+                <p id="preview-loading" style="display: none; position: absolute; background: rgba(0,0,0,0.75); color: white; padding: 10px 20px; border-radius: 20px; font-weight: bold; z-index: 15;">Memuat...</p>
             </div>
+
             <div class="settings-panel">
-                <h3 style="margin-top: 0; margin-bottom: 0.5rem;">Pengaturan</h3>
-                <label style="font-weight: 600; font-size: 0.9rem;">Nama File Baru:</label>
+                <h3 style="margin: 0;">Pengaturan & Ekspor</h3>
+                <label class="field-label">Nama File Baru:</label>
                 <input type="text" id="rename-input" placeholder="NamaFileBaru">
+                
                 <div id="dynamic-options"></div>
+
                 <div class="btn-group">
                     <button class="btn secondary" onclick="resetWorkspace()">Batal</button>
-                    <button class="btn" onclick="processFile()" id="process-btn">Download</button>
+                    <button class="btn" onclick="processFile()" id="process-btn">Save ke File</button>
                 </div>
-                <div id="status-msg" style="text-align: center; font-weight: bold; margin-top: 15px; font-size: 0.9rem;"></div>
+                <div id="status-msg" style="text-align: center; font-weight: bold; margin-top: 10px; font-size: 0.9rem;"></div>
             </div>
         </div>
     </main>
 
+    <!-- Hidden Render Container for Office/Translate to PDF -->
+    <div id="hidden-render-box" style="position: fixed; left: -9999px; top: 0; width: 794px; background: white; color: black; padding: 40px;"></div>
+
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-        const { PDFDocument, rgb, degrees } = PDFLib;
+        const { PDFDocument, rgb, degrees, StandardFonts } = PDFLib;
 
         let currentTool = 'watermark';
         let currentFile = null;
         let currentFilesList = [];
-        let previewBlobUrl = null; 
-        
-        let noBgCache = { file: null, blobUrl: null };
+        let previewBlobUrl = null;
+        let previewTimeout = null;
+        let segmentedCanvasCache = null;
 
+        // --- UI & Navigation ---
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
             const overlay = document.getElementById('sidebar-overlay');
@@ -229,9 +445,15 @@
 
         function openFullscreen() {
             const elem = document.getElementById("preview-container");
-            if (elem.requestFullscreen) { elem.requestFullscreen(); }
-            else if (elem.webkitRequestFullscreen) { elem.webkitRequestFullscreen(); }
-            else if (elem.msRequestFullscreen) { elem.msRequestFullscreen(); }
+            if (elem.requestFullscreen) elem.requestFullscreen();
+            else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
+        }
+
+        function toggleTheme() {
+            const body = document.body;
+            const isLight = body.getAttribute('data-theme') === 'light';
+            body.setAttribute('data-theme', isLight ? 'dark' : 'light');
+            document.querySelector("meta[name=theme-color]").setAttribute("content", isLight ? "#0f2027" : "#005BAC");
         }
 
         const dropZone = document.getElementById('drop-zone');
@@ -240,44 +462,59 @@
         dropZone.addEventListener('click', () => fileInput.click());
         dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
         dropZone.addEventListener('dragleave', (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); });
-        dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); if (e.dataTransfer.files.length) { fileInput.files = e.dataTransfer.files; handleFileSelect({ target: fileInput }); } });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            if (e.dataTransfer.files.length) {
+                fileInput.files = e.dataTransfer.files;
+                handleFileSelect({ target: fileInput });
+            }
+        });
         fileInput.addEventListener('change', handleFileSelect);
-
-        function toggleTheme() {
-            const body = document.body;
-            body.setAttribute('data-theme', body.getAttribute('data-theme') === 'light' ? 'dark' : 'light');
-            const metaThemeColor = document.querySelector("meta[name=theme-color]");
-            if(body.getAttribute('data-theme') === 'dark') metaThemeColor.setAttribute("content", "#0f2027");
-            else metaThemeColor.setAttribute("content", "#005BAC");
-        }
 
         function nav(tool) {
             currentTool = tool;
             document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
             event.currentTarget.classList.add('active');
-            if(window.innerWidth <= 900) { toggleSidebar(); }
+            if (window.innerWidth <= 900) toggleSidebar();
             resetWorkspace();
 
-            const titles = { 
-                'watermark': 'Watermark PDF', 'lock': 'Protect PDF', 'unlock': 'Unlock PDF', 
-                'removepages': 'Hapus Halaman', 'merge': 'Gabung PDF', 'compress': 'Compress PDF', 
-                'pdfimg-combo': 'Konversi Dokumen', 'img-converter': 'Konversi Ekstensi Gambar', 
-                'resize-img': 'Resize Dimensi Gambar', 'upscale-img': 'High-Res Upscale Gambar',
-                'remove-bg': 'AI Background Remover', 'heic': 'HEIC Converter' 
+            const titles = {
+                'watermark': 'Watermark PDF',
+                'office-pdf': 'Word, Excel, PPT ↔ PDF',
+                'translate-pdf': 'Translate PDF (Inggris ↔ Indo)',
+                'lock': 'Protect PDF',
+                'unlock': 'Unlock PDF',
+                'removepages': 'Hapus Halaman PDF',
+                'merge': 'Gabung PDF',
+                'compress': 'Compress PDF',
+                'pdfimg-combo': 'PDF ↔ Gambar',
+                'img-converter': 'Konversi Gambar',
+                'resize-img': 'Resize Gambar',
+                'upscale-img': 'Upscale Gambar',
+                'remove-bg': 'Hapus Background AI',
+                'heic': 'HEIC Converter'
             };
             document.getElementById('page-title').innerText = titles[tool];
-            
+
             fileInput.multiple = (tool === 'merge' || tool === 'pdfimg-combo');
             const desc = document.getElementById('upload-desc');
-            
+
             if (['img-converter', 'resize-img', 'upscale-img', 'remove-bg'].includes(tool)) {
-                fileInput.accept = "image/png, image/jpeg, image/webp"; desc.innerText = "Mendukung JPG, PNG, WEBP";
+                fileInput.accept = "image/png, image/jpeg, image/webp";
+                desc.innerText = "Mendukung JPG, JPEG, PNG, WEBP";
             } else if (tool === 'heic') {
-                fileInput.accept = ".heic"; desc.innerText = "Mendukung file Apple .HEIC";
+                fileInput.accept = ".heic";
+                desc.innerText = "Mendukung foto iPhone .HEIC";
             } else if (tool === 'pdfimg-combo') {
-                fileInput.accept = "application/pdf, image/png, image/jpeg, image/webp"; desc.innerText = "Mendukung PDF atau Multi-Gambar";
+                fileInput.accept = "application/pdf, image/png, image/jpeg, image/webp";
+                desc.innerText = "Mendukung PDF atau Multi-Gambar";
+            } else if (tool === 'office-pdf') {
+                fileInput.accept = ".pdf,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx";
+                desc.innerText = "Mendukung PDF, Word (.doc/.docx), Excel (.xls/.xlsx), PPT (.ppt/.pptx)";
             } else {
-                fileInput.accept = "application/pdf"; desc.innerText = "Mendukung file dokumen PDF";
+                fileInput.accept = "application/pdf";
+                desc.innerText = "Mendukung file dokumen PDF";
             }
         }
 
@@ -287,53 +524,69 @@
             fileInput.value = "";
             document.getElementById('status-msg').innerText = "";
             if (previewBlobUrl) URL.revokeObjectURL(previewBlobUrl);
-            
+
             document.getElementById('preview-container').classList.remove('checkerboard-bg');
             document.getElementById('pdf-preview').style.display = 'none';
             document.getElementById('img-preview').style.display = 'none';
-            
-            currentFile = null; currentFilesList = [];
-            
-            if (noBgCache.blobUrl) { URL.revokeObjectURL(noBgCache.blobUrl); noBgCache = { file: null, blobUrl: null }; }
+            document.getElementById('doc-preview').style.display = 'none';
+
+            currentFile = null;
+            currentFilesList = [];
+            segmentedCanvasCache = null;
         }
 
-        function handleFileSelect(event) {
+        async function handleFileSelect(event) {
             const files = event.target.files;
-            if (files.length === 0) return;
+            if (!files.length) return;
 
-            if (fileInput.multiple) { currentFilesList = Array.from(files); currentFile = files[0]; } 
-            else { currentFile = files[0]; }
+            currentFilesList = Array.from(files);
+            currentFile = files[0];
 
             document.getElementById('upload-section').classList.remove('active');
             document.getElementById('preview-section').classList.add('active');
-            
+
             const iframe = document.getElementById('pdf-preview');
             const imgEl = document.getElementById('img-preview');
+            const docEl = document.getElementById('doc-preview');
             const fsBtn = document.querySelector('.fullscreen-btn');
-            
-            iframe.style.display = 'none'; imgEl.style.display = 'none'; fsBtn.style.display = 'block';
+            const loading = document.getElementById('preview-loading');
+
+            iframe.style.display = 'none';
+            imgEl.style.display = 'none';
+            docEl.style.display = 'none';
+            loading.style.display = 'none';
+            fsBtn.style.display = 'block';
+
             previewBlobUrl = URL.createObjectURL(currentFile);
-            
-            if (currentTool === 'heic') {
-                fsBtn.style.display = 'none'; document.getElementById('preview-loading').innerText = "Pratinjau tidak didukung";
-                document.getElementById('preview-loading').style.display = 'block';
+            const ext = currentFile.name.split('.').pop().toLowerCase();
+
+            if (ext === 'heic') {
+                fsBtn.style.display = 'none';
+                loading.innerText = "Siap dikonversi";
+                loading.style.display = 'block';
             } else if (currentFile.type.startsWith('image/')) {
-                if(currentTool === 'remove-bg') document.getElementById('preview-container').classList.add('checkerboard-bg');
-                else document.getElementById('preview-container').classList.remove('checkerboard-bg');
-                
-                imgEl.src = previewBlobUrl; imgEl.style.display = 'block';
+                if (currentTool === 'remove-bg') document.getElementById('preview-container').classList.add('checkerboard-bg');
+                imgEl.src = previewBlobUrl;
+                imgEl.style.display = 'block';
+            } else if (ext === 'pdf') {
+                iframe.src = previewBlobUrl + "#toolbar=0&view=FitH";
+                iframe.style.display = 'block';
             } else {
-                document.getElementById('preview-container').classList.remove('checkerboard-bg');
-                iframe.src = previewBlobUrl + "#toolbar=0&view=FitH"; iframe.style.display = 'block';
+                // Preview untuk file Office (Word, Excel, PPT)
+                docEl.style.display = 'block';
+                docEl.innerHTML = `<p style="color:#666;">Memuat pratinjau dokumen <b>${currentFile.name}</b>...</p>`;
+                const htmlContent = await parseOfficeToHtml(currentFile);
+                docEl.innerHTML = htmlContent;
             }
 
-            const originalName = currentFile.name.substring(0, currentFile.name.lastIndexOf('.'));
-            document.getElementById('rename-input').value = originalName + (currentTool.includes('img') || currentTool === 'remove-bg' ? "_Image" : "_Edited");
+            const baseName = currentFile.name.substring(0, currentFile.name.lastIndexOf('.')) || currentFile.name;
+            document.getElementById('rename-input').value = baseName + "_Hasil";
 
             buildDynamicOptions();
-            
-            if(currentTool === 'watermark' || currentTool === 'remove-bg') updateLivePreview();
-            if(currentTool === 'resize-img') extractImageDimensions();
+
+            if (currentTool === 'watermark') updateLivePreview();
+            if (currentTool === 'remove-bg') runFastMediaPipePreview();
+            if (currentTool === 'resize-img') extractImageDimensions();
         }
 
         function extractImageDimensions() {
@@ -341,57 +594,118 @@
             img.onload = function() {
                 document.getElementById('opt-resize-w').value = this.width;
                 document.getElementById('opt-resize-h').value = this.height;
-            }
+            };
             img.src = previewBlobUrl;
         }
 
         function buildDynamicOptions() {
             const container = document.getElementById('dynamic-options');
-            container.innerHTML = ''; 
-            
+            container.innerHTML = '';
+            const ext = currentFile.name.split('.').pop().toLowerCase();
+
             if (currentTool === 'watermark') {
-                container.innerHTML = `<label style="margin-top:0.5rem; display:block; font-weight:600; font-size: 0.9rem;">Teks Watermark:</label><input type="text" id="opt-wm-text" value="CONFIDENTIAL" oninput="updateLivePreview()"><label style="margin-top:0.5rem; display:block; font-weight:600; font-size: 0.9rem;">Transparansi (Opacity):</label><div class="range-container"><input type="range" id="opt-wm-opacity" min="0.05" max="1" step="0.05" value="0.15" oninput="updateLivePreview()"><span id="opacity-val">15%</span></div>`;
-            } else if (currentTool === 'compress') {
-                container.innerHTML = `<label style="margin-top:0.5rem; display:block; font-weight:600; font-size: 0.9rem;">Level Kompresi:</label><select id="opt-compress-level"><option value="normal">Normal (Aman & Utuh)</option><option value="high">Ekstrem (Rasterize Resolusi Rendah)</option></select>`;
-            } else if (currentTool === 'removepages') {
-                container.innerHTML = `<label style="margin-top:0.5rem; display:block; font-weight:600; font-size: 0.9rem;">Halaman yang DISIMPAN (Misal: 1,3,4-5):</label><input type="text" id="opt-pages" placeholder="Ketik nomor halaman">`;
-            } else if (currentTool === 'lock') {
-                container.innerHTML = `<label style="margin-top:0.5rem; display:block; font-weight:600; font-size: 0.9rem;">Masukkan Password Baru:</label><input type="password" id="opt-lock-pass" placeholder="Buat Password">`;
-            } else if (currentTool === 'unlock') {
-                container.innerHTML = `<label style="margin-top:0.5rem; display:block; font-weight:600; font-size: 0.9rem;">Password PDF Saat Ini:</label><input type="password" id="opt-unlock-pass" placeholder="Password PDF">`;
-            } else if (currentTool === 'pdfimg-combo') {
-                container.innerHTML = `<label style="margin-top:0.5rem; display:block; font-weight:600; font-size: 0.9rem;">Pilih Konversi:</label><select id="opt-combo-mode"><option value="pdf2img">Ekstrak PDF menjadi Gambar (JPG)</option><option value="img2pdf">Jadikan File Gambar menjadi PDF</option></select>`;
-            } 
-            // MENU KONVERSI GAMBAR (3 OPSI SAJA)
-            else if (currentTool === 'img-converter') {
-                let ext = currentFile.name.split('.').pop().toUpperCase();
                 container.innerHTML = `
-                    <div style="background: var(--glass-border); padding: 10px; border-radius: 8px; margin-bottom: 10px;">
-                        <span style="font-size: 0.85rem; color: var(--text-muted);">Ekstensi file saat ini:</span><br>
-                        <b style="font-size: 1.1rem;">.${ext}</b>
+                    <label class="field-label">Teks Watermark:</label>
+                    <input type="text" id="opt-wm-text" value="CONFIDENTIAL" oninput="updateLivePreview()">
+                    <label class="field-label">Transparansi (Opacity):</label>
+                    <div class="range-container">
+                        <input type="range" id="opt-wm-opacity" min="0.05" max="1" step="0.05" value="0.15" oninput="updateLivePreview()">
+                        <span id="opacity-val">15%</span>
+                    </div>`;
+            } else if (currentTool === 'office-pdf') {
+                if (ext === 'pdf') {
+                    container.innerHTML = `
+                        <label class="field-label">Konversi PDF ke Format Office:</label>
+                        <select id="opt-office-target">
+                            <option value="doc">Microsoft Word (.doc)</option>
+                            <option value="xls">Microsoft Excel (.xls)</option>
+                            <option value="ppt">Microsoft PowerPoint (.ppt)</option>
+                        </select>`;
+                } else {
+                    container.innerHTML = `
+                        <div style="background: rgba(0,91,172,0.1); padding: 12px; border-radius: 10px; margin-top: 8px;">
+                            <small>File terdeteksi: <b>.${ext.toUpperCase()}</b></small><br>
+                            <b>Akan dikonversi ke: Dokumen PDF (.pdf)</b>
+                        </div>`;
+                }
+            } else if (currentTool === 'translate-pdf') {
+                container.innerHTML = `
+                    <label class="field-label">Arah Terjemahan:</label>
+                    <select id="opt-translate-dir">
+                        <option value="en|id">Inggris ➔ Indonesia</option>
+                        <option value="id|en">Indonesia ➔ Inggris</option>
+                    </select>
+                    <p style="font-size:0.8rem; color:var(--text-muted); margin-top:6px;">*Membutuhkan koneksi internet untuk menerjemahkan teks PDF.</p>`;
+            } else if (currentTool === 'compress') {
+                container.innerHTML = `
+                    <label class="field-label">Level Kompresi:</label>
+                    <select id="opt-compress-level">
+                        <option value="normal">Normal (Struktur Utuh)</option>
+                        <option value="high">High Compress (Kecilkan Resolusi Gambar)</option>
+                    </select>`;
+            } else if (currentTool === 'removepages') {
+                container.innerHTML = `
+                    <label class="field-label">Halaman yang DISIMPAN (Contoh: 1,3,4-5):</label>
+                    <input type="text" id="opt-pages" placeholder="Ketik nomor halaman">`;
+            } else if (currentTool === 'lock') {
+                container.innerHTML = `
+                    <label class="field-label">Password Baru:</label>
+                    <input type="password" id="opt-lock-pass" placeholder="Buat Password">`;
+            } else if (currentTool === 'unlock') {
+                container.innerHTML = `
+                    <label class="field-label">Password PDF Saat Ini:</label>
+                    <input type="password" id="opt-unlock-pass" placeholder="Password PDF">`;
+            } else if (currentTool === 'pdfimg-combo') {
+                container.innerHTML = `
+                    <label class="field-label">Pilih Mode Konversi:</label>
+                    <select id="opt-combo-mode">
+                        <option value="pdf2img" ${ext === 'pdf' ? 'selected' : ''}>PDF ke Gambar (.JPG)</option>
+                        <option value="img2pdf" ${ext !== 'pdf' ? 'selected' : ''}>Gambar ke Dokumen (.PDF)</option>
+                    </select>`;
+            } else if (currentTool === 'img-converter') {
+                container.innerHTML = `
+                    <div style="background: var(--glass-border); padding: 10px; border-radius: 8px; margin-top: 6px;">
+                        <span style="font-size: 0.85rem; color: var(--text-muted);">Format Asli:</span> <b>.${ext.toUpperCase()}</b>
                     </div>
-                    <label style="margin-top:0.5rem; display:block; font-weight:600; font-size: 0.9rem;">Ubah format menjadi:</label>
+                    <label class="field-label">Ubah Menjadi:</label>
                     <select id="opt-img-format">
                         <option value="jpg">JPG</option>
                         <option value="jpeg">JPEG</option>
                         <option value="png">PNG</option>
-                    </select>
-                `;
+                    </select>`;
             } else if (currentTool === 'resize-img') {
-                container.innerHTML = `<label style="margin-top:0.5rem; display:block; font-weight:600; font-size: 0.9rem;">Dimensi (Lebar x Tinggi):</label><div class="flex-row"><input type="number" id="opt-resize-w" placeholder="Lebar (px)"><span style="display:flex; align-items:center;">x</span><input type="number" id="opt-resize-h" placeholder="Tinggi (px)"></div>`;
+                container.innerHTML = `
+                    <label class="field-label">Dimensi Baru (Lebar x Tinggi px):</label>
+                    <div class="flex-row">
+                        <input type="number" id="opt-resize-w" placeholder="Lebar">
+                        <span style="display:flex; align-items:center;">x</span>
+                        <input type="number" id="opt-resize-h" placeholder="Tinggi">
+                    </div>`;
             } else if (currentTool === 'upscale-img') {
-                container.innerHTML = `<label style="margin-top:0.5rem; display:block; font-weight:600; font-size: 0.9rem;">Skala Perbesaran Resolusi:</label><select id="opt-upscale-factor"><option value="2">2x Lebih Besar</option><option value="4">4x Lebih Besar (Ultra High-Res)</option></select>`;
+                container.innerHTML = `
+                    <label class="field-label">Skala Resolusi:</label>
+                    <select id="opt-upscale-factor">
+                        <option value="2">2x High-Res</option>
+                        <option value="4">4x Ultra High-Res</option>
+                    </select>`;
             } else if (currentTool === 'remove-bg') {
                 container.innerHTML = `
                     <label class="checkbox-container">
-                        <input type="checkbox" id="opt-bg-transparent" checked onchange="toggleColorPicker(); updateLivePreview();"> 
+                        <input type="checkbox" id="opt-bg-transparent" checked onchange="toggleColorPicker(); renderSegmentedCanvas();"> 
                         Latar Belakang Transparan
                     </label>
-                    <div id="color-picker-wrapper" style="display:none; margin-top: 15px;">
-                        <label style="display:block; font-weight:600; font-size: 0.9rem;">Pilih Warna Latar Baru:</label>
-                        <input type="color" id="opt-bg-color" value="#005BAC" oninput="updateLivePreview()">
-                    </div>
-                `;
+                    <div id="color-picker-wrapper" style="display:none; margin-top: 10px;">
+                        <label class="field-label">Pilih Warna Background:</label>
+                        <input type="color" id="opt-bg-color" value="#005BAC" oninput="renderSegmentedCanvas()">
+                    </div>`;
+            } else if (currentTool === 'heic') {
+                container.innerHTML = `
+                    <label class="field-label">Format Tujuan:</label>
+                    <select id="opt-heic-format">
+                        <option value="jpg">JPG</option>
+                        <option value="png">PNG</option>
+                        <option value="pdf">PDF</option>
+                    </select>`;
             }
         }
 
@@ -400,242 +714,385 @@
             document.getElementById('color-picker-wrapper').style.display = isTrans ? 'none' : 'block';
         }
 
+        // --- FAST MOBILE/DESKTOP SAVE TO FILE ---
+        function saveToFile(blob, ext, suffix = "") {
+            let filename = document.getElementById('rename-input').value.trim() || "StudioTools_File";
+            if (suffix) filename += suffix;
+            if (!filename.toLowerCase().endsWith(ext.toLowerCase())) filename += ext;
+
+            const reader = new FileReader();
+            reader.onload = function() {
+                const a = document.createElement('a');
+                a.href = reader.result;
+                a.download = filename;
+                a.style.display = 'none';
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => document.body.removeChild(a), 1000);
+            };
+            reader.readAsDataURL(blob);
+        }
+
         function loadCanvasImage(source) {
             return new Promise((resolve, reject) => {
                 const img = new Image();
+                img.crossOrigin = "anonymous";
                 img.onload = () => resolve(img);
-                img.onerror = reject; 
+                img.onerror = reject;
                 img.src = typeof source === 'string' ? source : URL.createObjectURL(source);
             });
         }
 
-        let previewTimeout;
-        async function updateLivePreview() {
-            if (!currentFile) return;
-
-            if (currentTool === 'watermark') {
-                const text = document.getElementById('opt-wm-text').value;
-                const opacityVal = document.getElementById('opt-wm-opacity').value;
-                document.getElementById('opacity-val').innerText = Math.round(opacityVal * 100) + '%';
-                document.getElementById('preview-loading').style.display = 'block';
-
-                clearTimeout(previewTimeout);
-                previewTimeout = setTimeout(async () => {
-                    try {
-                        const pdfDoc = await PDFDocument.load(await currentFile.arrayBuffer());
-                        const pages = pdfDoc.getPages();
-                        pages.forEach(page => {
-                            const { width, height } = page.getSize();
-                            for (let x = -width; x < width * 2; x += 250) {
-                                for (let y = -height; y < height * 2; y += 250) {
-                                    page.drawText(text, { x: x, y: y, size: 24, color: rgb(0.5, 0.5, 0.5), opacity: parseFloat(opacityVal), rotate: degrees(45) });
-                                }
-                            }
-                        });
-                        if (previewBlobUrl) URL.revokeObjectURL(previewBlobUrl);
-                        previewBlobUrl = URL.createObjectURL(new Blob([await pdfDoc.save()], { type: 'application/pdf' }));
-                        document.getElementById('pdf-preview').src = previewBlobUrl + "#toolbar=0&view=FitH";
-                    } catch (e) {}
-                    document.getElementById('preview-loading').style.display = 'none';
-                }, 800); 
-            }
-            // AI BACKGROUND REMOVAL & PREVIEW
-            else if (currentTool === 'remove-bg') {
-                const isTrans = document.getElementById('opt-bg-transparent').checked;
-                const color = document.getElementById('opt-bg-color').value;
-                
-                clearTimeout(previewTimeout);
-                previewTimeout = setTimeout(async () => {
-                    document.getElementById('preview-loading').innerText = "AI Memproses...";
-                    document.getElementById('preview-loading').style.display = 'block';
-
-                    try {
-                        if (noBgCache.file !== currentFile) {
-                            if(typeof imglyRemoveBackground === 'undefined') throw new Error("Library AI gagal dimuat.");
-                            
-                            // Menghubungkan secara eksplisit ke CDN unpkg yang andal untuk memuat model
-                            const config = { publicPath: 'https://unpkg.com/@imgly/background-removal@1.4.3/dist/' };
-                            const blob = await imglyRemoveBackground(currentFile, config);
-                            
-                            if (noBgCache.blobUrl) URL.revokeObjectURL(noBgCache.blobUrl);
-                            noBgCache.file = currentFile;
-                            noBgCache.blobUrl = URL.createObjectURL(blob);
-                        }
-
-                        const img = await loadCanvasImage(noBgCache.blobUrl);
-                        const canvas = document.createElement('canvas');
-                        canvas.width = img.width; canvas.height = img.height;
-                        const ctx = canvas.getContext('2d');
-
-                        if (!isTrans) {
-                            ctx.fillStyle = color;
-                            ctx.fillRect(0, 0, canvas.width, canvas.height);
-                        }
-                        ctx.drawImage(img, 0, 0);
-
-                        canvas.toBlob(b => {
-                            if (previewBlobUrl) URL.revokeObjectURL(previewBlobUrl);
-                            previewBlobUrl = URL.createObjectURL(b);
-                            document.getElementById('img-preview').src = previewBlobUrl;
-                            document.getElementById('preview-loading').style.display = 'none';
-                        }, isTrans ? 'image/png' : 'image/jpeg', 0.9);
-
-                    } catch (e) {
-                        console.error(e);
-                        document.getElementById('preview-loading').innerText = "⚠ Proses AI Gagal / Perlu Internet.";
-                        setTimeout(() => document.getElementById('preview-loading').style.display = 'none', 3000);
-                    }
-                }, 500);
-            }
-        }
-
-        // FUNGSI DOWNLOAD DIPERBARUI UNTUK HP
-        function downloadBlob(blob, ext, suffix = "") {
-            let filename = document.getElementById('rename-input').value.trim();
-            if (!filename) filename = "StudioTools";
-            if (suffix) filename += suffix; 
-            if (!filename.toLowerCase().endsWith(ext)) filename += ext;
-            
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.style.display = 'none';
-            a.href = url; 
-            a.download = filename;
-            
-            // Penambahan appendChild krusial untuk memaksa "Save to Files" di perangkat mobile
-            document.body.appendChild(a);
-            a.click();
-            
-            // Pembersihan memori dengan jeda waktu agar unduhan tidak terputus
-            setTimeout(() => {
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-            }, 500);
-        }
-
-        async function processFile() {
-            const status = document.getElementById('status-msg');
-            status.innerText = "Memproses..."; status.style.color = "var(--text-main)";
-            document.getElementById('process-btn').disabled = true; document.getElementById('process-btn').innerText = "Tunggu...";
+        // --- FAST AI BACKGROUND REMOVAL (MEDIAPIPE) ---
+        async function runFastMediaPipePreview() {
+            const loading = document.getElementById('preview-loading');
+            loading.innerText = "Memotong background instan...";
+            loading.style.display = 'block';
 
             try {
-                await new Promise(resolve => setTimeout(resolve, 100)); 
-                
-                if (currentTool === 'watermark') await runWatermark();
-                else if (currentTool === 'removepages') await runRemovePages();
-                else if (currentTool === 'merge') await runMerge();
-                else if (currentTool === 'compress') await runCompress();
-                else if (currentTool === 'unlock') await runUnlock();
-                else if (currentTool === 'lock') await runLock();
-                else if (currentTool === 'heic') await runHeic();
-                else if (currentTool === 'pdfimg-combo') await runPdfImgCombo();
-                else if (currentTool === 'img-converter') await runImgConverter();
-                else if (currentTool === 'resize-img') await runResizeImg();
-                else if (currentTool === 'upscale-img') await runUpscaleImg();
-                else if (currentTool === 'remove-bg') await runRemoveBg();
-                
-                status.innerText = "✓ Berhasil diselesaikan!"; status.style.color = "#4CAF50";
-            } catch (e) { status.innerText = "⚠ Gagal: " + e.message; status.style.color = "#D32F2F"; }
-            
-            document.getElementById('process-btn').innerText = "Download"; document.getElementById('process-btn').disabled = false;
-        }
-        
-        async function runPdfImgCombo() {
-            const mode = document.getElementById('opt-combo-mode').value;
-            if (mode === 'pdf2img') {
-                if(!currentFile.type.includes('pdf')) throw new Error("File yang diupload bukan PDF!");
-                const pdf = await pdfjsLib.getDocument({data: await currentFile.arrayBuffer()}).promise;
-                for(let i = 1; i <= pdf.numPages; i++) {
-                    const page = await pdf.getPage(i);
-                    const viewport = page.getViewport({ scale: 2.0 }); 
-                    const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d');
-                    canvas.width = viewport.width; canvas.height = viewport.height;
-                    await page.render({ canvasContext: ctx, viewport: viewport }).promise;
-                    canvas.toBlob(blob => { downloadBlob(blob, '.jpg', `_Halaman_${i}`); }, 'image/jpeg', 0.9);
-                    await new Promise(r => setTimeout(r, 400)); 
-                }
-            } else if (mode === 'img2pdf') {
-                const pdfDoc = await PDFDocument.create();
-                for (let file of currentFilesList) {
-                    const img = await loadCanvasImage(file);
-                    const canvas = document.createElement('canvas'); canvas.width = img.width; canvas.height = img.height;
-                    canvas.getContext('2d').drawImage(img, 0, 0);
-                    const imgBuffer = await new Promise(r => canvas.toBlob(async b => r(await b.arrayBuffer()), 'image/jpeg', 0.9));
-                    const image = await pdfDoc.embedJpg(imgBuffer);
-                    const page = pdfDoc.addPage([image.width, image.height]);
-                    page.drawImage(image, { x: 0, y: 0, width: image.width, height: image.height });
-                }
-                downloadBlob(new Blob([await pdfDoc.save()], { type: 'application/pdf' }), '.pdf');
+                const imgElement = await loadCanvasImage(previewBlobUrl);
+                const selfieSegmentation = new SelfieSegmentation({
+                    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${file}`
+                });
+                selfieSegmentation.setOptions({ modelSelection: 1 });
+
+                selfieSegmentation.onResults((results) => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = results.image.width;
+                    canvas.height = results.image.height;
+                    const ctx = canvas.getContext('2d');
+
+                    ctx.save();
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(results.segmentationMask, 0, 0, canvas.width, canvas.height);
+                    ctx.globalCompositeOperation = 'source-in';
+                    ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+                    ctx.restore();
+
+                    segmentedCanvasCache = canvas;
+                    renderSegmentedCanvas();
+                    loading.style.display = 'none';
+                });
+
+                await selfieSegmentation.send({ image: imgElement });
+            } catch (err) {
+                loading.innerText = "Gagal memuat AI. Periksa koneksi internet.";
+                setTimeout(() => loading.style.display = 'none', 2500);
             }
         }
 
-        // FUNGSI KONVERSI GAMBAR TERBARU
+        function renderSegmentedCanvas() {
+            if (!segmentedCanvasCache) return;
+            const isTrans = document.getElementById('opt-bg-transparent').checked;
+            const color = document.getElementById('opt-bg-color').value;
+
+            const finalCanvas = document.createElement('canvas');
+            finalCanvas.width = segmentedCanvasCache.width;
+            finalCanvas.height = segmentedCanvasCache.height;
+            const ctx = finalCanvas.getContext('2d');
+
+            if (!isTrans) {
+                ctx.fillStyle = color;
+                ctx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
+            }
+            ctx.drawImage(segmentedCanvasCache, 0, 0);
+
+            document.getElementById('img-preview').src = finalCanvas.toDataURL(isTrans ? 'image/png' : 'image/jpeg', 0.95);
+        }
+
+        // --- LIVE WATERMARK PREVIEW ---
+        function updateLivePreview() {
+            if (currentTool !== 'watermark' || !currentFile) return;
+            const text = document.getElementById('opt-wm-text').value;
+            const opacityVal = document.getElementById('opt-wm-opacity').value;
+            document.getElementById('opacity-val').innerText = Math.round(opacityVal * 100) + '%';
+            document.getElementById('preview-loading').innerText = "Memperbarui...";
+            document.getElementById('preview-loading').style.display = 'block';
+
+            clearTimeout(previewTimeout);
+            previewTimeout = setTimeout(async () => {
+                try {
+                    const pdfDoc = await PDFDocument.load(await currentFile.arrayBuffer());
+                    pdfDoc.getPages().forEach(page => {
+                        const { width, height } = page.getSize();
+                        for (let x = -width; x < width * 2; x += 250) {
+                            for (let y = -height; y < height * 2; y += 250) {
+                                page.drawText(text, { x, y, size: 24, color: rgb(0.5, 0.5, 0.5), opacity: parseFloat(opacityVal), rotate: degrees(45) });
+                            }
+                        }
+                    });
+                    if (previewBlobUrl) URL.revokeObjectURL(previewBlobUrl);
+                    previewBlobUrl = URL.createObjectURL(new Blob([await pdfDoc.save()], { type: 'application/pdf' }));
+                    document.getElementById('pdf-preview').src = previewBlobUrl + "#toolbar=0&view=FitH";
+                } catch (e) {}
+                document.getElementById('preview-loading').style.display = 'none';
+            }, 600);
+        }
+
+        // --- PARSER OFFICE (WORD, EXCEL, PPT) KE HTML ---
+        async function parseOfficeToHtml(file) {
+            const ext = file.name.split('.').pop().toLowerCase();
+            const buffer = await file.arrayBuffer();
+
+            if (ext === 'docx' || ext === 'doc') {
+                const result = await mammoth.convertToHtml({ arrayBuffer: buffer });
+                return `<div style="font-family: Arial, sans-serif; color:#000;">${result.value}</div>`;
+            } else if (ext === 'xlsx' || ext === 'xls' || ext === 'csv') {
+                const workbook = XLSX.read(buffer, { type: 'array' });
+                let html = '';
+                workbook.SheetNames.forEach(name => {
+                    html += `<h3 style="color:#005BAC; border-bottom:1px solid #ccc;">Sheet: ${name}</h3>`;
+                    html += XLSX.utils.sheet_to_html(workbook.Sheets[name]);
+                });
+                return `<style>table{border-collapse:collapse;width:100%;font-size:12px;margin-bottom:20px;}td,th{border:1px solid #999;padding:6px;text-align:left;}</style>${html}`;
+            } else if (ext === 'pptx' || ext === 'ppt') {
+                const zip = await JSZip.loadAsync(buffer);
+                let slidesHtml = '';
+                const slideFiles = Object.keys(zip.files).filter(name => name.startsWith('ppt/slides/slide') && name.endsWith('.xml')).sort();
+                
+                for (let i = 0; i < slideFiles.length; i++) {
+                    const xmlText = await zip.files[slideFiles[i]].async('string');
+                    const parser = new DOMParser();
+                    const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+                    const textNodes = xmlDoc.getElementsByTagName('a:t');
+                    let slideText = '';
+                    for (let j = 0; j < textNodes.length; j++) {
+                        slideText += textNodes[j].textContent + ' ';
+                    }
+                    slidesHtml += `<div style="border:1px solid #ccc; padding:15px; margin-bottom:15px; border-radius:8px; background:#f9f9f9;">
+                        <strong style="color:#005BAC;">Slide ${i + 1}</strong><p style="margin-top:8px;">${slideText || '(Slide Kosong / Gambar)'}</p>
+                    </div>`;
+                }
+                return slidesHtml || '<p>Tidak ada teks yang dapat diekstrak dari presentasi ini.</p>';
+            }
+            return '<p>Format dokumen tidak didukung untuk pratinjau.</p>';
+        }
+
+        // --- EKSEKUSI UTAMA ---
+        async function processFile() {
+            const status = document.getElementById('status-msg');
+            const btn = document.getElementById('process-btn');
+            status.innerText = "Memproses dokumen...";
+            status.style.color = "var(--text-main)";
+            btn.disabled = true;
+            btn.innerText = "Tunggu...";
+
+            try {
+                await new Promise(r => setTimeout(r, 100));
+
+                switch (currentTool) {
+                    case 'watermark': await runWatermark(); break;
+                    case 'office-pdf': await runOfficePdf(); break;
+                    case 'translate-pdf': await runTranslatePdf(); break;
+                    case 'removepages': await runRemovePages(); break;
+                    case 'merge': await runMerge(); break;
+                    case 'compress': await runCompress(); break;
+                    case 'unlock': await runUnlock(); break;
+                    case 'lock': await runLock(); break;
+                    case 'pdfimg-combo': await runPdfImgCombo(); break;
+                    case 'img-converter': await runImgConverter(); break;
+                    case 'resize-img': await runResizeImg(); break;
+                    case 'upscale-img': await runUpscaleImg(); break;
+                    case 'remove-bg': await runRemoveBgSave(); break;
+                    case 'heic': await runHeic(); break;
+                }
+
+                status.innerText = "✓ Berhasil disimpan ke perangkat!";
+                status.style.color = "#4CAF50";
+            } catch (e) {
+                console.error(e);
+                status.innerText = "⚠ Gagal: " + e.message;
+                status.style.color = "#D32F2F";
+            }
+
+            btn.innerText = "Save ke File";
+            btn.disabled = false;
+        }
+
+        // --- IMPLEMENTASI FITUR ---
+        async function runOfficePdf() {
+            const ext = currentFile.name.split('.').pop().toLowerCase();
+            if (ext === 'pdf') {
+                // PDF ke Word / Excel / PPT
+                const target = document.getElementById('opt-office-target').value;
+                const pdf = await pdfjsLib.getDocument({ data: await currentFile.arrayBuffer() }).promise;
+                let fullText = [];
+
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const content = await page.getTextContent();
+                    const pageStr = content.items.map(item => item.str).join(' ');
+                    fullText.push({ page: i, text: pageStr });
+                }
+
+                if (target === 'doc') {
+                    const htmlDoc = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'></head><body>${fullText.map(p => `<h3>Halaman ${p.page}</h3><p>${p.text}</p><hr>`).join('')}</body></html>`;
+                    saveToFile(new Blob(['\ufeff', htmlDoc], { type: 'application/msword' }), '.doc');
+                } else if (target === 'xls') {
+                    const wb = XLSX.utils.book_new();
+                    const rows = fullText.map(p => [`Halaman ${p.page}`, p.text]);
+                    const ws = XLSX.utils.aoa_to_sheet([['Halaman', 'Isi Teks'], ...rows]);
+                    XLSX.utils.book_append_sheet(wb, ws, "Hasil_PDF");
+                    const wbout = XLSX.write(wb, { bookType: 'xls', type: 'array' });
+                    saveToFile(new Blob([wbout], { type: 'application/vnd.ms-excel' }), '.xls');
+                } else if (target === 'ppt') {
+                    const htmlPpt = `<html><head><meta charset='utf-8'></head><body>${fullText.map(p => `<div style="page-break-after:always; padding:20px; border:1px solid #000;"><h2>Slide ${p.page}</h2><p>${p.text}</p></div>`).join('')}</body></html>`;
+                    saveToFile(new Blob(['\ufeff', htmlPpt], { type: 'application/vnd.ms-powerpoint' }), '.ppt');
+                }
+            } else {
+                // Word / Excel / PPT ke PDF
+                const renderBox = document.getElementById('hidden-render-box');
+                renderBox.innerHTML = await parseOfficeToHtml(currentFile);
+                const opt = {
+                    margin: 10,
+                    filename: 'converted.pdf',
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: { scale: 2 },
+                    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                };
+                const pdfBlob = await html2pdf().set(opt).from(renderBox).outputPdf('blob');
+                renderBox.innerHTML = '';
+                saveToFile(pdfBlob, '.pdf');
+            }
+        }
+
+        async function runTranslatePdf() {
+            const langPair = document.getElementById('opt-translate-dir').value;
+            const status = document.getElementById('status-msg');
+            const pdf = await pdfjsLib.getDocument({ data: await currentFile.arrayBuffer() }).promise;
+            let translatedHtml = '';
+
+            for (let i = 1; i <= pdf.numPages; i++) {
+                status.innerText = `Menerjemahkan halaman ${i} dari ${pdf.numPages}...`;
+                const page = await pdf.getPage(i);
+                const content = await page.getTextContent();
+                const rawText = content.items.map(item => item.str).join(' ').trim();
+
+                if (rawText) {
+                    // Potong per 450 karakter agar aman melewati limit API publik
+                    const chunks = rawText.match(/.{1,450}(\s|$)/g) || [rawText];
+                    let pageTranslated = '';
+
+                    for (let chunk of chunks) {
+                        const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(chunk)}&langpair=${langPair}`);
+                        const data = await res.json();
+                        pageTranslated += (data.responseData?.translatedText || chunk) + ' ';
+                    }
+                    translatedHtml += `<div style="margin-bottom:20px; page-break-after:always;">
+                        <h4 style="color:#005BAC; border-bottom:1px solid #ddd; padding-bottom:5px;">Halaman ${i}</h4>
+                        <p style="font-size:13px; line-height:1.6; text-align:justify;">${pageTranslated}</p>
+                    </div>`;
+                }
+            }
+
+            const renderBox = document.getElementById('hidden-render-box');
+            renderBox.innerHTML = translatedHtml;
+            const pdfBlob = await html2pdf().set({
+                margin: 12,
+                html2canvas: { scale: 2 },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            }).from(renderBox).outputPdf('blob');
+            renderBox.innerHTML = '';
+            saveToFile(pdfBlob, '.pdf', '_Translated');
+        }
+
+        async function runRemoveBgSave() {
+            if (!segmentedCanvasCache) throw new Error("Gambar belum selesai diproses AI.");
+            const isTrans = document.getElementById('opt-bg-transparent').checked;
+            const color = document.getElementById('opt-bg-color').value;
+
+            const finalCanvas = document.createElement('canvas');
+            finalCanvas.width = segmentedCanvasCache.width;
+            finalCanvas.height = segmentedCanvasCache.height;
+            const ctx = finalCanvas.getContext('2d');
+
+            if (!isTrans) {
+                ctx.fillStyle = color;
+                ctx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
+            }
+            ctx.drawImage(segmentedCanvasCache, 0, 0);
+
+            finalCanvas.toBlob(blob => {
+                saveToFile(blob, isTrans ? '.png' : '.jpg', '_NoBG');
+            }, isTrans ? 'image/png' : 'image/jpeg', 0.95);
+        }
+
         async function runImgConverter() {
-            const formatStr = document.getElementById('opt-img-format').value; // jpg, jpeg, png
+            const formatStr = document.getElementById('opt-img-format').value;
             const mime = formatStr === 'png' ? 'image/png' : 'image/jpeg';
-            const ext = '.' + formatStr; // .jpg, .jpeg, .png
-            
             const img = await loadCanvasImage(currentFile);
             const canvas = document.createElement('canvas');
-            canvas.width = img.width; canvas.height = img.height;
+            canvas.width = img.width;
+            canvas.height = img.height;
             const ctx = canvas.getContext('2d');
-            
-            // Jika konversi ke jpeg/jpg, paksa latar putih untuk area transparan
-            if(mime === 'image/jpeg') { 
-                ctx.fillStyle = "#FFFFFF"; 
-                ctx.fillRect(0, 0, canvas.width, canvas.height); 
+
+            if (mime === 'image/jpeg') {
+                ctx.fillStyle = "#FFFFFF";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
             }
             ctx.drawImage(img, 0, 0);
-            
-            canvas.toBlob(blob => downloadBlob(blob, ext), mime, 1.0);
+            canvas.toBlob(blob => saveToFile(blob, '.' + formatStr), mime, 0.95);
         }
 
         async function runResizeImg() {
             const w = parseInt(document.getElementById('opt-resize-w').value);
             const h = parseInt(document.getElementById('opt-resize-h').value);
-            if(!w || !h) throw new Error("Lebar dan Tinggi harus diisi!");
-            
+            if (!w || !h) throw new Error("Masukkan lebar dan tinggi yang valid!");
+
             const img = await loadCanvasImage(currentFile);
             const canvas = document.createElement('canvas');
-            canvas.width = w; canvas.height = h;
+            canvas.width = w;
+            canvas.height = h;
             const ctx = canvas.getContext('2d');
-            ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = "high";
             ctx.drawImage(img, 0, 0, w, h);
-            
-            canvas.toBlob(blob => downloadBlob(blob, '.png'), 'image/png');
+            canvas.toBlob(blob => saveToFile(blob, '.png', `_${w}x${h}`), 'image/png');
         }
 
         async function runUpscaleImg() {
             const scale = parseInt(document.getElementById('opt-upscale-factor').value);
             const img = await loadCanvasImage(currentFile);
             const canvas = document.createElement('canvas');
-            canvas.width = img.width * scale; canvas.height = img.height * scale;
+            canvas.width = img.width * scale;
+            canvas.height = img.height * scale;
             const ctx = canvas.getContext('2d');
-            ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = "high";
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            canvas.toBlob(blob => downloadBlob(blob, '.png', `_${scale}x`), 'image/png');
+            canvas.toBlob(blob => saveToFile(blob, '.png', `_${scale}x_HD`), 'image/png');
         }
 
-        // FUNGSI UNDUH BACKGROUND REMOVER
-        async function runRemoveBg() {
-            if (!noBgCache.blobUrl) throw new Error("Mohon tunggu proses pratinjau AI selesai terlebih dahulu.");
-            
-            const isTrans = document.getElementById('opt-bg-transparent').checked;
-            const ext = isTrans ? '.png' : '.jpg';
-            const mime = isTrans ? 'image/png' : 'image/jpeg';
-            
-            const img = await loadCanvasImage(noBgCache.blobUrl);
-            const canvas = document.createElement('canvas');
-            canvas.width = img.width; canvas.height = img.height;
-            const ctx = canvas.getContext('2d');
-
-            if (!isTrans) {
-                ctx.fillStyle = document.getElementById('opt-bg-color').value;
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
+        async function runPdfImgCombo() {
+            const mode = document.getElementById('opt-combo-mode').value;
+            if (mode === 'pdf2img') {
+                if (!currentFile.type.includes('pdf')) throw new Error("Pilih file PDF!");
+                const pdf = await pdfjsLib.getDocument({ data: await currentFile.arrayBuffer() }).promise;
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const viewport = page.getViewport({ scale: 2.0 });
+                    const canvas = document.createElement('canvas');
+                    canvas.width = viewport.width;
+                    canvas.height = viewport.height;
+                    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+                    await new Promise(res => canvas.toBlob(b => { saveToFile(b, '.jpg', `_Hal_${i}`); res(); }, 'image/jpeg', 0.9));
+                    await new Promise(r => setTimeout(r, 350));
+                }
+            } else {
+                const pdfDoc = await PDFDocument.create();
+                for (let file of currentFilesList) {
+                    const img = await loadCanvasImage(file);
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    canvas.getContext('2d').drawImage(img, 0, 0);
+                    const imgBuffer = await new Promise(r => canvas.toBlob(async b => r(await b.arrayBuffer()), 'image/jpeg', 0.9));
+                    const image = await pdfDoc.embedJpg(imgBuffer);
+                    const page = pdfDoc.addPage([image.width, image.height]);
+                    page.drawImage(image, { x: 0, y: 0, width: image.width, height: image.height });
+                }
+                saveToFile(new Blob([await pdfDoc.save()], { type: 'application/pdf' }), '.pdf');
             }
-            ctx.drawImage(img, 0, 0);
-
-            canvas.toBlob(blob => downloadBlob(blob, ext, '_NoBG'), mime, 1.0);
         }
 
         async function runWatermark() {
@@ -644,60 +1101,96 @@
             const pdfDoc = await PDFDocument.load(await currentFile.arrayBuffer());
             pdfDoc.getPages().forEach(page => {
                 const { width, height } = page.getSize();
-                for (let x = -width; x < width * 2; x += 250) { for (let y = -height; y < height * 2; y += 250) { page.drawText(text, { x: x, y: y, size: 24, color: rgb(0.5, 0.5, 0.5), opacity: opacity, rotate: degrees(45) }); } }
+                for (let x = -width; x < width * 2; x += 250) {
+                    for (let y = -height; y < height * 2; y += 250) {
+                        page.drawText(text, { x, y, size: 24, color: rgb(0.5, 0.5, 0.5), opacity, rotate: degrees(45) });
+                    }
+                }
             });
-            downloadBlob(new Blob([await pdfDoc.save()], { type: 'application/pdf' }), '.pdf');
+            saveToFile(new Blob([await pdfDoc.save()], { type: 'application/pdf' }), '.pdf');
         }
 
         async function runCompress() {
             const level = document.getElementById('opt-compress-level').value;
-            if (level === 'normal') { downloadBlob(new Blob([await (await PDFDocument.load(await currentFile.arrayBuffer())).save({ useObjectStreams: false })], { type: 'application/pdf' }), '.pdf'); } 
-            else {
-                const pdf = await pdfjsLib.getDocument({data: await currentFile.arrayBuffer()}).promise;
+            if (level === 'normal') {
+                const pdfDoc = await PDFDocument.load(await currentFile.arrayBuffer());
+                saveToFile(new Blob([await pdfDoc.save({ useObjectStreams: false })], { type: 'application/pdf' }), '.pdf', '_Compressed');
+            } else {
+                const pdf = await pdfjsLib.getDocument({ data: await currentFile.arrayBuffer() }).promise;
                 const newPdf = await PDFDocument.create();
-                for(let i = 1; i <= pdf.numPages; i++) {
+                for (let i = 1; i <= pdf.numPages; i++) {
                     const page = await pdf.getPage(i);
-                    const viewport = page.getViewport({ scale: 1.2 });
-                    const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d');
-                    canvas.width = viewport.width; canvas.height = viewport.height;
-                    await page.render({ canvasContext: ctx, viewport: viewport }).promise;
-                    const imgBuffer = await new Promise(res => canvas.toBlob(async b => res(await b.arrayBuffer()), 'image/jpeg', 0.6));
+                    const viewport = page.getViewport({ scale: 1.1 });
+                    const canvas = document.createElement('canvas');
+                    canvas.width = viewport.width;
+                    canvas.height = viewport.height;
+                    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+                    const imgBuffer = await new Promise(res => canvas.toBlob(async b => res(await b.arrayBuffer()), 'image/jpeg', 0.55));
                     const image = await newPdf.embedJpg(imgBuffer);
                     const newPage = newPdf.addPage([image.width, image.height]);
                     newPage.drawImage(image, { x: 0, y: 0, width: image.width, height: image.height });
                 }
-                downloadBlob(new Blob([await newPdf.save()], { type: 'application/pdf' }), '.pdf');
+                saveToFile(new Blob([await newPdf.save()], { type: 'application/pdf' }), '.pdf', '_HighCompressed');
             }
         }
 
         async function runRemovePages() {
             const input = document.getElementById('opt-pages').value;
+            if (!input) throw new Error("Masukkan nomor halaman!");
             const pdfDoc = await PDFDocument.load(await currentFile.arrayBuffer());
-            let pagesToKeep = new Set();
+            const max = pdfDoc.getPageCount();
+            let keep = new Set();
             input.split(',').forEach(part => {
-                let bounds = part.split('-');
-                if (bounds.length === 2) { for (let i = parseInt(bounds[0]); i <= parseInt(bounds[1]); i++) { if (i > 0 && i <= pdfDoc.getPageCount()) pagesToKeep.add(i - 1); } } 
-                else { let val = parseInt(part); if (val > 0 && val <= pdfDoc.getPageCount()) pagesToKeep.add(val - 1); }
+                let b = part.split('-');
+                if (b.length === 2) {
+                    for (let i = parseInt(b[0]); i <= parseInt(b[1]); i++) if (i > 0 && i <= max) keep.add(i - 1);
+                } else {
+                    let v = parseInt(part);
+                    if (v > 0 && v <= max) keep.add(v - 1);
+                }
             });
             const newPdf = await PDFDocument.create();
-            (await newPdf.copyPages(pdfDoc, Array.from(pagesToKeep).sort((a,b) => a-b))).forEach(page => newPdf.addPage(page));
-            downloadBlob(new Blob([await newPdf.save()], { type: 'application/pdf' }), '.pdf');
+            (await newPdf.copyPages(pdfDoc, Array.from(keep).sort((a, b) => a - b))).forEach(p => newPdf.addPage(p));
+            saveToFile(new Blob([await newPdf.save()], { type: 'application/pdf' }), '.pdf');
         }
 
         async function runMerge() {
+            if (currentFilesList.length < 2) throw new Error("Pilih minimal 2 file PDF!");
             const mergedPdf = await PDFDocument.create();
             for (let file of currentFilesList) {
-                (await mergedPdf.copyPages(await PDFDocument.load(await file.arrayBuffer()), (await PDFDocument.load(await file.arrayBuffer())).getPageIndices())).forEach(page => mergedPdf.addPage(page));
+                const pdf = await PDFDocument.load(await file.arrayBuffer());
+                (await mergedPdf.copyPages(pdf, pdf.getPageIndices())).forEach(p => mergedPdf.addPage(p));
             }
-            downloadBlob(new Blob([await mergedPdf.save()], { type: 'application/pdf' }), '.pdf');
+            saveToFile(new Blob([await mergedPdf.save()], { type: 'application/pdf' }), '.pdf', '_Merged');
         }
 
-        async function runUnlock() { downloadBlob(new Blob([await (await PDFDocument.load(await currentFile.arrayBuffer(), { password: document.getElementById('opt-unlock-pass').value })).save()], { type: 'application/pdf' }), '.pdf'); }
+        async function runUnlock() {
+            const pass = document.getElementById('opt-unlock-pass').value;
+            if (!pass) throw new Error("Masukkan password!");
+            const pdfDoc = await PDFDocument.load(await currentFile.arrayBuffer(), { password: pass });
+            saveToFile(new Blob([await pdfDoc.save()], { type: 'application/pdf' }), '.pdf', '_Unlocked');
+        }
 
         async function runLock() {
             const pass = document.getElementById('opt-lock-pass').value;
-            const htmlVault = `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Dokumen Terkunci</title><style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#121212;color:#fff;margin:0;padding:20px;}.box{background:#1E1E1E;padding:30px;border-radius:10px;text-align:center;border:1px solid #333;width:100%;max-width:400px;}input{padding:14px;width:100%;box-sizing:border-box;margin:15px 0;border-radius:8px;border:1px solid #555;background:#111;color:#fff;}button{background:#005BAC;color:white;border:none;padding:14px 20px;border-radius:8px;cursor:pointer;font-weight:bold;width:100%;}</style></head><body><div class="box"><h2>🔒 Dokumen Terkunci</h2><p>Masukkan password untuk mendownload PDF.</p><input type="password" id="pass" placeholder="Password"><button onclick="unlock()">Buka & Download</button><p id="msg" style="color:red;"></p></div><script>const truePass="${pass}";const fileData="${btoa(new Uint8Array(await currentFile.arrayBuffer()).reduce((data, byte) => data + String.fromCharCode(byte), ''))}";const fileName="${currentFile.name}";function unlock(){if(document.getElementById('pass').value===truePass){const byteCharacters=atob(fileData);const byteNumbers=new Array(byteCharacters.length);for(let i=0;i<byteCharacters.length;i++)byteNumbers[i]=byteCharacters.charCodeAt(i);const link=document.createElement('a');link.style.display='none';link.href=URL.createObjectURL(new Blob([new Uint8Array(byteNumbers)],{type:'application/pdf'}));link.download=fileName;document.body.appendChild(link);link.click();setTimeout(()=>{document.body.removeChild(link);},500);document.getElementById('msg').style.color="#4CAF50";document.getElementById('msg').innerText="Berhasil! Mendownload...";}else{document.getElementById('msg').innerText="Password Salah!";}}<\/script></body></html>`;
-            downloadBlob(new Blob([htmlVault], { type: 'text/html' }), '.html');
+            if (!pass) throw new Error("Masukkan password baru!");
+            const base64File = btoa(new Uint8Array(await currentFile.arrayBuffer()).reduce((d, b) => d + String.fromCharCode(b), ''));
+            const htmlVault = `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Dokumen Terkunci</title><style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#121212;color:#fff;margin:0;padding:20px;}.box{background:#1E1E1E;padding:30px;border-radius:12px;text-align:center;border:1px solid #333;width:100%;max-width:400px;}input{padding:14px;width:100%;box-sizing:border-box;margin:15px 0;border-radius:8px;border:1px solid #555;background:#111;color:#fff;}button{background:#005BAC;color:white;border:none;padding:14px;border-radius:8px;cursor:pointer;font-weight:bold;width:100%;}</style></head><body><div class="box"><h2>🔒 Dokumen Terkunci</h2><p>Masukkan password untuk menyimpan PDF.</p><input type="password" id="pass" placeholder="Password"><button onclick="unlock()">Buka & Save File</button><p id="msg" style="color:#ff5252;"></p></div><script>const p="${pass}",d="${base64File}",n="${currentFile.name}";function unlock(){if(document.getElementById('pass').value===p){const c=atob(d),a=new Uint8Array(c.length);for(let i=0;i<c.length;i++)a[i]=c.charCodeAt(i);const r=new FileReader();r.onload=function(){const l=document.createElement('a');l.href=r.result;l.download=n;document.body.appendChild(l);l.click();setTimeout(()=>document.body.removeChild(l),500);};r.readAsDataURL(new Blob([a],{type:'application/pdf'}));document.getElementById('msg').style.color="#4CAF50";document.getElementById('msg').innerText="Berhasil!";}else{document.getElementById('msg').innerText="Password Salah!";}}<\/script></body></html>`;
+            saveToFile(new Blob([htmlVault], { type: 'text/html' }), '.html', '_Protected');
+        }
+
+        async function runHeic() {
+            const format = document.getElementById('opt-heic-format').value;
+            const res = await heic2any({ blob: new Blob([await currentFile.arrayBuffer()]), toType: format === 'png' ? "image/png" : "image/jpeg", quality: 0.85 });
+            if (format === 'jpg' || format === 'png') {
+                saveToFile(res, '.' + format);
+            } else {
+                const pdfDoc = await PDFDocument.create();
+                const image = await pdfDoc.embedJpg(await res.arrayBuffer());
+                const page = pdfDoc.addPage([image.width, image.height]);
+                page.drawImage(image, { x: 0, y: 0, width: image.width, height: image.height });
+                saveToFile(new Blob([await pdfDoc.save()], { type: 'application/pdf' }), '.pdf');
+            }
         }
     </script>
 </body>
